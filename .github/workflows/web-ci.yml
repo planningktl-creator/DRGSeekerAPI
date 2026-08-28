@@ -1,0 +1,31 @@
+# CI ตรวจโค้ด web/ — รันทุก PR และ push ที่แตะ web/
+name: Web CI
+
+on:
+  pull_request:
+    paths: ['web/**']
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/web-ci.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check app.js
+        run: node --check web/assets/app.js
+      - name: Check asset references exist
+        run: |
+          set -e
+          # ไฟล์ที่ index.html อ้าง (src/href="assets/...") ต้องมีจริงใน repo
+          grep -oP '(src|href)="assets/[^"]+"' web/index.html | sed 's/.*="//;s/"//' | sort -u | while read -r f; do
+            if [ ! -f "web/$f" ]; then
+              echo "MISSING asset: $f"
+              exit 1
+            fi
+          done
+          echo "All referenced assets exist."
