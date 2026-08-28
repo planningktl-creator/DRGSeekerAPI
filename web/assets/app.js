@@ -154,6 +154,11 @@ async function loadDc() {
       sel.appendChild(o);
     });
     if (dcList.some(r => r.code === '11')) sel.value = '11';
+    /* เคสที่ restore ไว้ก่อนรายการโหลดเสร็จ — เลือกให้ตอนนี้ */
+    if (pendingDc && dcList.some(r => r.code === pendingDc)) {
+      sel.value = pendingDc;
+      pendingDc = null;
+    }
   } catch (e) {
     $('dcStatus').innerHTML = '<option value="11">ใช้ค่าเริ่มต้น (11)</option>';
     $('dcStatus').value = '11';
@@ -446,7 +451,7 @@ function renderRecent() {
   if (!r.length) { row.style.display = 'none'; return; }
   row.style.display = 'flex';
   row.innerHTML = '<span class="qlbl">ล่าสุด:</span>' + r.map(c =>
-    `<button type="button" class="qchip" data-code="${c}" title="เพิ่ม ${c}">${c}</button>`).join('');
+    `<button type="button" class="qchip" data-code="${esc(c)}" title="เพิ่ม ${esc(c)}">${esc(c)}</button>`).join('');
   bindQuick(row, SDX, 'sdxChips');
 }
 
@@ -821,9 +826,32 @@ function renderPermute(results, currentPdx, elapsedMs, capped, stopped, baseline
 }
 
 /* ================= RENDER ================= */
+/* cache แยกตามเวอร์ชัน grouper (TGrp6305 v6.3.5) — ชื่อ DRG/error/warning
+   ผูกกับเวอร์ชัน เมื่ออัปเดต grouper รายการเก่าต้องไม่ค้างแสดง
+   + จำกัดจำนวนไม่ให้ localStorage โตไม่จำกัด */
+const LIB_CACHE_VER = 'v6.3.5';
+const LIB_CACHE_PREFIX = 'ktl_lib_' + LIB_CACHE_VER + '_';
+const LIB_CACHE_MAX = 150;
 let libCache = {};
-function cacheGet(key) { try { return libCache[key] != null ? libCache[key] : localStorage.getItem('ktl_lib_' + key); } catch (e) { return libCache[key]; } }
-function cacheSet(key, val) { libCache[key] = val; try { localStorage.setItem('ktl_lib_' + key, val); } catch (e) {} }
+function cacheGet(key) { try { return libCache[key] != null ? libCache[key] : localStorage.getItem(LIB_CACHE_PREFIX + key); } catch (e) { return libCache[key]; } }
+function cacheSet(key, val) {
+  libCache[key] = val;
+  try { localStorage.setItem(LIB_CACHE_PREFIX + key, val); } catch (e) {}
+  pruneLibCache();
+}
+function pruneLibCache() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('ktl_lib_') === 0) keys.push(k);
+    }
+    /* เวอร์ชันอื่น/เก่าลบทิ้ง ของเวอร์ชันนี้เกิน cap ตัดรายการเก่าสุด */
+    keys.forEach(k => { if (k.indexOf(LIB_CACHE_PREFIX) !== 0) localStorage.removeItem(k); });
+    const mine = keys.filter(k => k.indexOf(LIB_CACHE_PREFIX) === 0);
+    if (mine.length > LIB_CACHE_MAX) mine.slice(0, mine.length - LIB_CACHE_MAX).forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+}
 
 function renderResult(r, tgrp) {
   const baseRate = clampNum($('baseRate').value, 0, 1e7, 3504);
@@ -933,13 +961,48 @@ function renderError(e) {
 }
 
 /* ================= HISTORY ================= */
+/* schema v2: เก็บเคสเต็มทุก field ที่ส่งผลต่อการคำนวณ — โหลดกลับมาแล้ว
+   ต้องได้ผลเดิม ไม่ใช่ PDx เดิม + ค่า default 65 ปี/60 กก. แบบเดิม
+   (entry เก่าที่ไม่มี field ใหม่ยังโหลดได้แบบบางส่วน) */
+let pendingDc = null; /* D/C ที่รอโหลด option จาก API เสร็จก่อนค่อยเลือก */
 function saveHistory(pat, r) {
   let h = [];
   try { h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]'); } catch (e) {}
-  h.unshift({ ts: Date.now(), pdx: pat.pdx, drg: r.drg, rw: r.rw, adjrw: r.adjrw, sdx: pat.sdx || [], proc: pat.proc || [] });
+  h.unshift({
+    v: 2, ts: Date.now(),
+    hcode: pat.hcode, sex: pat.sex,
+    age: pat.age, age_day: pat.age_day, weight: pat.weight,
+    los_day: pat.los_day, los_hour: pat.los_hour,
+    dc: (pat.dischs || '') + (pat.discht || ''),
+    baseRate: clampNum($('baseRate').value, 0, 1e7, 3504),
+    pdx: pat.pdx, sdx: pat.sdx || [], proc: pat.proc || [],
+    drg: r.drg, rw: r.rw, adjrw: r.adjrw
+  });
   h = h.slice(0, 10);
   try { localStorage.setItem('ktl_drg_hist', JSON.stringify(h)); } catch (e) {}
   renderHistory();
+}
+/* โหลดเคสกลับเต็มฟอร์ม — ใช้ทั้งปุ่มประวัติและตอนเปิดหน้าใหม่ */
+function restoreCase(item) {
+  if (!item) return;
+  if (item.pdx) $('pdx').value = item.pdx;
+  if (item.hcode != null) $('hcode').value = item.hcode;
+  if (item.sex === 1 || item.sex === 2) setSex(+item.sex);
+  if (item.age != null) $('age').value = item.age;
+  if (item.age_day != null) $('ageDay').value = item.age_day;
+  if (item.weight != null) $('weight').value = item.weight;
+  if (item.los_day != null) $('losDay').value = item.los_day;
+  if (item.los_hour != null) $('losHour').value = item.los_hour;
+  if (item.baseRate != null) $('baseRate').value = item.baseRate;
+  setArr(SDX, item.sdx); setArr(PROC, item.proc);
+  chipRow($('sdxChips'), SDX); chipRow($('procChips'), PROC);
+  if (item.dc) {
+    const sel = $('dcStatus');
+    if ([...sel.options].some(o => o.value === item.dc)) sel.value = item.dc;
+    else pendingDc = item.dc; /* รายการ D/C ยังโหลดไม่เสร็จ — loadDc จะเลือกให้เอง */
+  }
+  syncSdxVsPdx();
+  updatePdxReadiness();
 }
 function renderHistory() {
   let h = [];
@@ -948,7 +1011,7 @@ function renderHistory() {
     `<div class="hist-item" data-idx="${i}" role="button" tabindex="0" title="โหลดเคส ${esc(x.pdx)} กลับมาทั้งหมด">
        <span class="drg">${esc(x.drg)}</span>
        <span>${esc(x.pdx)}${(x.sdx && x.sdx.length) ? ' +' + x.sdx.length : ''}</span>
-       <span class="rw">RW ${(+x.rw).toFixed(4)} · ADJRW ${(+x.adjrw).toFixed(4)}</span>
+       <span class="rw">RW ${fmt(x.rw)} · ADJRW ${fmt(x.adjrw)}</span>
        <span class="time">${new Date(x.ts).toLocaleTimeString('th-TH')}</span>
      </div>`
   ).join('') : '<div class="hist-empty"><div class="hist-empty-ic" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>ยังไม่มีประวัติ<br><span>คำนวณเคสแรกเพื่อบันทึกไว้ที่นี่</span></div>';
@@ -957,11 +1020,7 @@ function renderHistory() {
       const idx = +el.dataset.idx;
       const item = h[idx];
       if (!item) return;
-      $('pdx').value = item.pdx;
-      setArr(SDX, item.sdx); setArr(PROC, item.proc);
-      chipRow($('sdxChips'), SDX); chipRow($('procChips'), PROC);
-      syncSdxVsPdx();
-      updatePdxReadiness();
+      restoreCase(item);
       toast('โหลดเคส ' + item.pdx + ' กลับมาแล้ว', 2500, 'ok');
     };
     el.addEventListener('click', activate);
@@ -1029,8 +1088,9 @@ function initTheme() {
 (function restore() {
   try {
     const h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]');
-    if (h.length) $('pdx').value = h[0].pdx;
+    if (h.length && h[0]) restoreCase(h[0]); /* เต็มเคส ไม่ใช่แค่ PDx */
   } catch (e) {}
+  pruneLibCache();
 })();
 bindChips($('sdxChips'), SDX, 'sdx');
 bindChips($('procChips'), PROC, 'proc');
