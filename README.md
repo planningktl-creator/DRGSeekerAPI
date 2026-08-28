@@ -1,138 +1,120 @@
 # KTL CMI DRG Seeker
 
-> เครื่องมือคำนวณ DRG (Diagnosis Related Groups) ออนไลน์ — รพ.กันทรลักษ์
-> ใช้ **Grouper ทางการ CMI@MoPH (TGrp6305 v6.3.5 / TDRG 6.3.4)** ผ่าน API สาธารณะ `had-api.moph.go.th`
+เครื่องมือคำนวณ DRG สำหรับงานยุทธศาสตร์ โรงพยาบาลกันทรลักษ์ ใช้ Grouper ทางการของ CMI@MoPH (TGrp6305 v6.3.5) เป็น SPA แบบ vanilla JavaScript ที่ build ด้วย Vite และ deploy ได้ทั้ง GitHub Pages กับ Docker
 
-Static Web App บน **GitHub Pages** สำหรับบุคลากรทางการแพทย์คำนวณ DRG รายเคสออนไลน์
-โดยเรียก Grouper ทางการของกระทรวงสาธารณสุขตรงจากเบราว์เซอร์ ไม่ต้องมีเซิร์ฟเวอร์ส่วนตัว
-โฮสต์ฟรีบน GitHub และเข้าถึงได้จากทุกที่ผ่านลิงก์
+## ความสามารถ
 
-- **URL**: https://planningktl-creator.github.io/DRGSeekerAPI/
-- **ภาษา UI**: ไทย
-- **ธีม**: สว่าง/เข้ม (teal/cyan + amber แบรนด์ รพ.กันทรลักษ์)
-- **ผู้พัฒนา**: งานยุทธศาสตร์ รพ.กันทรลักษ์ (10929)
+- คำนวณ DRG รายเคสจาก PDx, SDx, Proc, HCode, เพศ, อายุ, น้ำหนัก, LOS และ D/C Status
+- ค้นหา ICD-10 / ICD-9-CM, วางรหัสหลายรายการ และใช้ quick picks ได้
+- SDx สูงสุด 10 รหัส และ Proc สูงสุด 20 รหัส ตามข้อจำกัดของ API จริง
+- เปรียบเทียบทางเลือก PDx พร้อม progress, ETA, ปุ่มหยุด และยืนยันก่อนงานชุดใหญ่
+- ประวัติการคำนวณเก็บใน `localStorage` และโหลดกลับได้ทั้งเคส
+- ธีมสว่าง/เข้ม, keyboard shortcuts, accessible status และ responsive layout สำหรับมือถือ
 
----
+## สถาปัตยกรรม
 
-## ✨ ฟีเจอร์
+```text
+GitHub Pages  ── browser fetch ──► https://had-api.moph.go.th/cmi
 
-- **คำนวณ DRG รายเคส** — กรอก PDx / SDx (สูงสุด 12) / หัตถการ / อายุ / น้ำหนัก / LOS / อัตราฐาน
-- **ผลลัพธ์ครบถ้วน** — DRG, MDC, RW, ADJRW, WTLOS, OT, Error/Warning (เทียบกับ bridge ท้องถิ่น 1:1)
-- **ค้นหา ICD-10 / ICD-9-CM** — อัตโนมัติจาก API libs พร้อมคำอธิบาย WHO
-- **ชื่อ DRG / Error / Warning** — ใช้ `/libs/drg-name`, `/libs/drg-error`, `/libs/drg-warning`
-- **ทดสอบหลายชุด SDx** — ถ้า SDx เกิน 12 ตัว จะทดสอบทุกชุดเพื่อดู RW ทุกรูปแบบ
-- **ประวัติการคำนวณ** — เก็บใน `localStorage` (โหลดเคสกลับทั้ง PDx/SDx/Proc)
-- **สลับธีม** — สว่าง/เข้ม เก็บค่าใน `localStorage`
-- **การ์ดลัด (Quick)** — ชุดค่าตัวอย่างกดใช้เร็ว
-- **Proxy fallback** — ถ้า client fetch ติด CORS/geo จะส่งผ่าน GAS server (`UrlFetchApp`)
-
----
-
-## 🏗️ สถาปัตยกรรม
-
-```
-เบราว์เซอร์ผู้ใช้ (index.html ที่ root)
-   │  fetch ตรง (หลัก)  ────────────►  https://had-api.moph.go.th/cmi
-   │  fallback: CORS proxy สาธารณะ  ──►  (เมื่อ fetch ตรงล่มชั่วคราว)
-   │
-   └── โฮสต์บน static hosting ใดก็ได้ (GitHub Pages / Netlify / Docker)
+Docker/nginx  ── browser /api ──► nginx reverse proxy ──► CMI@MoPH API
+                     │
+                     └── SPA history fallback + static asset 404 safety
 ```
 
-- **โฮสต์**: static hosting — ไม่มี backend, ทำงานจากเบราว์เซอร์ล้วน
-- **ตัวหลัก**: `fetch` ตรงไป API CMI@MoPH (CORS เปิด `*`)
-- **fallback**: ลอง CORS proxy สาธารณะ (best-effort) เมื่อ fetch ตรงล่มชั่วคราว
-- API จำกัดเฉพาะ **IP ไทย** (IP ต่างประเทศได้ 404)
+ไม่มี public CORS proxy อีกต่อไป เพื่อไม่ส่งข้อมูลเคสผ่านบริการภายนอกที่ควบคุมไม่ได้ Docker proxy ช่วยเรื่อง same-origin/CORS เท่านั้น และยังต้องใช้งานจากเครือข่ายในประเทศไทยหรือ VPN ของโรงพยาบาลตามข้อจำกัดของ API
 
-### โครงสร้างไฟล์
+## พัฒนาในเครื่อง
 
-```
-index.html                    # SPA หลัก (ที่ root เพื่อให้ static host ใด ๆ พร้อมใช้)
-.nojekyll                     # ปิด Jekyll ของ GitHub Pages
-assets/
-├── styles.css                # Design System v3.0 (ธีมสว่าง/เข้ม, responsive)
-└── app.js                    # Logic ทั้งหมด (fetch, autocomplete, permute, ประวัติ, ธีม)
-
-Dockerfile, nginx.conf, docker-compose.yml   # self-host ผ่าน Docker
-.github/workflows/deploy-pages.yml           # auto-deploy ไป GitHub Pages
-gas-app/                       # (เก็บไว้เป็น reference จากเวอร์ชัน GAS เดิม — ไม่ได้ใช้งานแล้ว)
-```
-
----
-
-## 🔌 API ที่ใช้ (CMI@MoPH)
-
-| Method | Path | ใช้ทำ |
-|---|---|---|
-| POST | `/drg/calculate` | คำนวณ DRG (หัวใจของระบบ) |
-| GET | `/libs/icd10/{code}` | ข้อมูล ICD-10 + คำอธิบาย WHO |
-| GET | `/libs/icd-cm/{code}` | ชื่อหัตถการ ICD-9-CM |
-| GET | `/libs/drg-name/{drg}` | ตาราง DRG (rw0d, rw, wtlos, ot, mdf, drgname) |
-| GET | `/libs/drg-error/{code}` | คำอธิบาย error code |
-| GET | `/libs/drg-warning/{code}` | คำอธิบาย warning code (ภาษาไทย) |
-| GET | `/libs/ipd-result` | รายการสถานะจำหน่าย 29 รายการ |
-
-> เอกสารอ้างอิงฉบับเต็ม: `CMI_MOPH_DRG_API_Reference.md` (โฟลเดอร์ parent)
-
----
-
-## 🚀 Deploy (GitHub Pages)
-
-**อัตโนมัติ** — ทุกครั้งที่ push ไฟล์ `index.html` / `assets/` (หรือกด `workflow_dispatch`) workflow
-`.github/workflows/deploy-pages.yml` จะ build + deploy ขึ้น GitHub Pages ให้เอง ไม่ต้องรันอะไร
+ต้องใช้ Node.js `>=20.19.0` (แนะนำ Node 22)
 
 ```bash
-# แก้ไขโค้ดแล้ว push — deploy ให้อัตโนมัติ
-git add index.html assets/ && git commit -m "fix: ..." && git push
+npm ci
+npm run dev
 ```
 
-- **URL**: https://planningktl-creator.github.io/DRGSeekerAPI/
-- **ตั้งค่ามือครั้งเดียว**: Repo Settings → Pages → Source = "GitHub Actions" (ทำแล้ว)
-- **Repo**: public (GitHub Pages ฟรีไม่รองรับ private repo)
+เปิด `http://localhost:5173` จากนั้น Vite จะเรียก API ทางการโดยตรง ค่า API เปลี่ยนได้ด้วย `VITE_API_BASE` และ base path เปลี่ยนได้ด้วย `VITE_BASE_PATH`
 
-### ตรวจสอบ/แก้ fallback proxy
-`assets/app.js` → ค่าคงที่ `PROXY_FALLBACKS` (ตัวที่ใช้เมื่อ fetch ตรงล่มชั่วคราว)
-ตัวหลัก (fetch ตรง) ทำงานได้เสมอในไทย เพราะ CMI@MoPH เปิด CORS `*`
+คำสั่งสำคัญ:
 
----
-
-## 🐳 Docker (self-host / local dev)
-
-รันแอปเป็น static site บน **nginx** (ไม่ต้องพึ่ง GitHub) — ใช้ได้ทั้ง local และ deploy บนเครื่อง/เซิร์ฟเวอร์เอง
-
-**วิธีใช้ (docker compose):**
 ```bash
-# build + run บน port 8080
+npm run build       # สร้าง production artifact ที่ dist/
+npm run preview     # เปิดดู dist/ แบบ local
+npm test            # build + Playwright smoke tests
+```
+
+## Docker
+
+Docker ใช้ multi-stage build: Node/Vite สร้าง `dist/` แล้ว nginx เสิร์ฟ artifact ที่ build เสร็จแล้ว พร้อม proxy `/api/` ไปยัง CMI@MoPH
+
+```bash
 docker compose up -d --build
-
-# เปิด: http://localhost:8080
 ```
 
-**หรือ docker run ตรง ๆ:**
+เปิด `http://localhost:8080` ตรวจสุขภาพได้ที่ `http://localhost:8080/healthz`
+
+ค่าที่ปรับได้:
+
+```bash
+# PowerShell
+$env:PORT = "8088"
+$env:VITE_API_BASE = "/api"
+docker compose up -d --build
+```
+
+ถ้าต้องการ build image โดยตรง:
+
 ```bash
 docker build -t ktl-drg-seeker .
-docker run -d -p 8080:80 --name ktl-drg-seeker ktl-drg-seeker
+docker run --rm -p 8080:80 ktl-drg-seeker
 ```
 
-| ไฟล์ | ใช้ทำ |
-|---|---|
-| `Dockerfile` | nginx:alpine + คัดลอก `index.html`/`assets/` + healthcheck |
-| `nginx.conf` | gzip, cache asset, security headers |
-| `docker-compose.yml` | build + map port 8080→80, restart policy |
-| `.dockerignore` | ยกเว้นไฟล์ไม่จำเป็นออกจาก image |
+Nginx ตั้งค่า SPA fallback สำหรับ deep link เช่น `/cases/preview` แต่จะไม่ fallback path ที่อยู่ใต้ `/assets/` ดังนั้น asset ที่สะกดผิดจะได้ HTTP 404 และไม่ถูก browser ปฏิเสธด้วย MIME ผิดชนิด
 
-> ตัว app ยังเรียก CMI@MoPH ตรงจาก browser — container เป็นแค่ web server เสิร์ฟไฟล์ static
+## GitHub Pages
 
----
+ไฟล์ `.github/workflows/deploy-pages.yml` จะติดตั้ง dependency ด้วย `npm ci`, build ด้วย:
 
-## 🛠️ หมายเหตุทางเทคนิค
+- `VITE_BASE_PATH=/DRGSeekerAPI/`
+- `VITE_API_BASE=https://had-api.moph.go.th/cmi`
 
-- **Static hosting**: ทำงานจากเบราว์เซอร์ล้วน ไม่มี backend — เรียก CMI@MoPH ตรงผ่าน CORS
-- **CORS proxy fallback**: เป็นแค่ safety net เมื่อ fetch ตรงล่มชั่วคราว (ตัวหลักในไทยทำงานได้เสมอ)
-- **API เร็ว ~1.4 วินาที/เคส** (รัน EXE บนเซิร์ฟเวอร์ของ สรท.)
-- **`gas-app/`**: โค้ดเวอร์ชัน GAS เดิมเก็บไว้เป็น reference เท่านั้น ไม่ได้ deploy แล้ว
+แล้ว upload เฉพาะ `dist/` ไป GitHub Pages ทุกครั้งที่ push `main` หากระบบภายนอกยังแสดง error ว่าไม่มี `package.json` และ `index.html` ให้ตรวจว่า builder ใช้ branch `main` และ commit ล่าสุด ไม่ใช่ revision เก่าก่อนย้ายไฟล์จาก `web/` มา root
 
----
+URL: <https://planningktl-creator.github.io/DRGSeekerAPI/>
 
-## 📄 License
+## API ที่ใช้
+
+| Method | Path | ใช้ทำอะไร |
+|---|---|---|
+| POST | `/drg/calculate` | คำนวณ DRG |
+| GET | `/libs/icd10/{code}` | ค้นหา ICD-10 |
+| GET | `/libs/icd-cm/{code}` | ค้นหา ICD-9-CM |
+| GET | `/libs/drg-name/{drg}` | ชื่อ DRG |
+| GET | `/libs/drg-error/{code}` | คำอธิบาย error |
+| GET | `/libs/drg-warning/{code}` | คำอธิบาย warning |
+| GET | `/libs/ipd-result` | รายการ D/C Status |
+
+เอกสารอ้างอิง API ฉบับเต็มอยู่ที่ `CMI_MOPH_DRG_API_Reference.md` ในโฟลเดอร์ parent ของ repository
+
+## ตรวจสอบคุณภาพ
+
+- `npm test` ตรวจ deep link, การคำนวณด้วย mocked API, การจำกัด payload และการ restore ประวัติทั้งเคส
+- CI ตรวจ Node build, Playwright, Docker build, `/healthz`, root/deep link และยืนยันว่า `/deep/assets/app.js` เป็น 404
+- การทดสอบ API จริงต้องทำจากเครือข่ายที่ API อนุญาต
+
+## โครงสร้างสำคัญ
+
+```text
+index.html                         # SPA entry
+assets/app.js                      # UI, API client, calculator flow
+assets/styles.css                  # design system + responsive rules
+vite.config.js                     # Vite SPA/base configuration
+Dockerfile                         # Vite build + nginx runtime
+nginx.conf                         # SPA fallback + /api proxy + headers
+docker-compose.yml                 # local/self-host deployment
+tests/spa.spec.js                  # Playwright smoke tests
+gas-app/                           # GAS legacy reference; ไม่ได้ใช้ deploy
+```
+
+## License
 
 MIT License — ดูไฟล์ [LICENSE](LICENSE)

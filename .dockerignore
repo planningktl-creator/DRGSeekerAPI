@@ -1,6 +1,9 @@
 # ยกเว้นไฟล์ที่ไม่ต้องเข้า image
 .git
 .gitignore
+node_modules/
+test-results/
+playwright-report/
 Dockerfile
 docker-compose.yml
 docker-compose.yaml
@@ -11,3 +14,4 @@ docs/
 gas-app/
 .github/
 *.log
+dist/

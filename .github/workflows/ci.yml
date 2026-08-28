@@ -1,0 +1,46 @@
+name: Verify application
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+      - name: Run build and browser tests
+        run: npm test
+      - name: Build Docker image
+        run: docker build --tag ktl-drg-seeker:ci .
+      - name: Start Docker container
+        run: docker run --detach --rm --name ktl-drg-seeker-ci --publish 8080:80 ktl-drg-seeker:ci
+      - name: Smoke test Docker routes
+        shell: bash
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8080/healthz; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8080/healthz | grep -q '^ok'
+          curl --fail --silent --show-error http://127.0.0.1:8080/ | grep -q 'KTL CMI DRG Seeker'
+          curl --fail --silent --show-error http://127.0.0.1:8080/deep/link | grep -q 'KTL CMI DRG Seeker'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/deep/assets/app.js)" = "404"
+      - name: Stop Docker container
+        if: always()
+        run: docker stop ktl-drg-seeker-ci || true

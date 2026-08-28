@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="เครื่องมือคำนวณ DRG ออนไลน์ รพ.กันทรลักษ์ — ใช้ Grouper ทางการ CMI@MoPH (TGrp6305 v6.3.5) บน GitHub Pages">
+  <meta name="description" content="เครื่องมือคำนวณ DRG ออนไลน์ รพ.กันทรลักษ์ — ใช้ Grouper ทางการ CMI@MoPH (TGrp6305 v6.3.5) บน GitHub Pages และ Docker">
+  <meta name="theme-color" content="#eef5f6">
   <title>KTL CMI DRG Seeker</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2314b8a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-4l-3 9L9 3l-3 9H2'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
 
@@ -40,8 +41,9 @@
 
       <div class="field">
         <label class="lbl" for="hcode">รหัสสถานพยาบาล (HCode) <span class="required">จำเป็น</span></label>
-        <input type="text" id="hcode" value="10929" maxlength="5" inputmode="numeric" autocomplete="off">
-        <div class="hint">รหัส 5 หลักของสถานพยาบาล · ตัวอย่าง 10929 (รพ.กันทรลักษ์)</div>
+        <input type="text" id="hcode" value="10929" maxlength="5" inputmode="numeric" autocomplete="off" required pattern="[0-9]{5}" aria-describedby="hcodeError hcodeHint">
+        <div class="field-error" id="hcodeError">กรุณาระบุรหัสสถานพยาบาลเป็นตัวเลข 5 หลัก</div>
+        <div class="hint" id="hcodeHint">รหัส 5 หลักของสถานพยาบาล · ตัวอย่าง 10929 (รพ.กันทรลักษ์)</div>
       </div>
 
       <div class="field">
@@ -86,7 +88,8 @@
 
       <div class="field">
         <label class="lbl" for="dcStatus">สถานะจำหน่าย (D/C Status)</label>
-        <select id="dcStatus"><option value="">กำลังโหลด...</option></select>
+        <select id="dcStatus" aria-describedby="dcHint"><option value="">กำลังโหลดรายการ...</option></select>
+        <div class="hint" id="dcHint">กำลังโหลดรายการจาก CMI@MoPH...</div>
       </div>
       </details>
 
@@ -160,7 +163,7 @@
   </div>
 
   <footer>
-    <b>KTL CMI DRG Seeker</b> · พัฒนาโดยงานยุทธศาสตร์ รพ.กันทรลักษ์ · เวอร์ชัน v3.0 (GitHub Pages)<br>
+    <b>KTL CMI DRG Seeker</b> · พัฒนาโดยงานยุทธศาสตร์ รพ.กันทรลักษ์ · เวอร์ชัน v3.1 (GitHub Pages / Docker)<br>
     ใช้ Grouper ทางการ <b>CMI@MoPH · TGrp6305 v6.3.5</b> (สำนักพัฒนากลุ่มโรคร่วมไทย สรท.)<br>
     หมายเหตุ: API จำกัดการเข้าถึงเฉพาะเครือข่ายในประเทศไทย
   </footer>
@@ -176,6 +179,6 @@
 <div id="loader" role="status" aria-live="polite"><div class="spin" aria-hidden="true"></div><div class="t" id="loaderTxt">กำลังคำนวณ DRG ผ่าน Grouper ทางการ...</div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="assets/app.js"></script>
+<script type="module" src="/assets/app.js"></script>
 </body>
 </html>

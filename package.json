@@ -1,12 +1,23 @@
 {
   "name": "ktl-drg-seeker",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "KTL CMI DRG Seeker — static web app for DRG calculation (CMI@MoPH)",
   "main": "index.html",
   "type": "module",
   "scripts": {
-    "start": "npx --yes serve . -l 8080"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite preview --host 0.0.0.0 --port 8080",
+    "test": "npm run build && playwright test"
   },
   "keywords": ["drg", "cmi", "moph", "thailand", "healthcare", "grouper"],
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "vite": "8.2.2"
+  }
 }

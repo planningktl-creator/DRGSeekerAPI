@@ -1,9 +1,19 @@
-# KTL CMI DRG Seeker — docker compose (local dev / self-host)
+# KTL CMI DRG Seeker — local/self-hosted Docker deployment
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-/api}
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
     image: ktl-drg-seeker:latest
     container_name: ktl-drg-seeker
     ports:
-      - "8080:80"
+      - "${PORT:-8080}:80"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3

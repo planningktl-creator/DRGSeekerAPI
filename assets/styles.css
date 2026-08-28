@@ -1,5 +1,5 @@
 /* ============================================================
-   KTL CMI DRG Seeker — Design System v3.0 (GitHub Pages)
+   KTL CMI DRG Seeker — Design System v3.1 (GitHub Pages / Docker)
    พื้นสีเขียวเข้ม teal/cyan accent + amber secondary (แบรนด์ รพ.กันทรลักษ์)
    สว่าง/เข้ม ครบ + glassmorphism เบา ๆ + motion ละมุน
    ============================================================ */
@@ -128,6 +128,7 @@ input:focus-visible, select:focus-visible { outline: none; }
 .wrap { max-width: 1240px; margin: 0 auto; padding: 18px 20px 60px; }
 .grid { display: grid; grid-template-columns: 460px minmax(0, 1fr); gap: 22px; align-items: start; }
 @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+.grid > *, .right-col, .form-card { min-width: 0; }
 .right-col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 
 /* ---------- Header ---------- */
@@ -200,10 +201,11 @@ header {
 /* ---------- Form ---------- */
 .field { margin-bottom: 16px; }
 .lbl { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; letter-spacing: .3px; }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.row2 > *, .row3 > *, .actions > *, .advanced-fields { min-width: 0; }
 input[type=text], input[type=number], select {
-  width: 100%; min-height: 46px; padding: 11px 13px; border-radius: var(--r-sm);
+  width: 100%; min-width: 0; max-width: 100%; min-height: 46px; padding: 11px 13px; border-radius: var(--r-sm);
   background: var(--input-bg); border: 1px solid var(--input-border);
   color: var(--txt); font-size: 14px; outline: none;
   transition: border-color .2s, box-shadow .2s;
@@ -261,7 +263,8 @@ select option { background: var(--ac-bg); color: var(--txt); }
 .eyebrow { color: var(--teal); font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 4px; }
 .section-note { color: var(--hint); font-size: 12px; margin: -8px 0 16px; line-height: 1.5; }
 .required { color: var(--amber); margin-left: 3px; }
-.field-error { display: none; color: #fca5a5; font-size: 12px; margin-top: 5px; line-height: 1.45; }
+.field-error { display: none; color: var(--err); font-size: 12px; margin-top: 5px; line-height: 1.45; }
+.field-error[hidden] { display: none !important; }
 .field.has-error .field-error { display: block; }
 .advanced-fields { border: 1px solid var(--input-border); border-radius: 14px; padding: 0 14px; background: var(--card-2); margin: 6px 0 18px; }
 .advanced-fields summary { cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 700; padding: 12px 2px; list-style-position: inside; }
@@ -418,6 +421,7 @@ select option { background: var(--ac-bg); color: var(--txt); }
   background: radial-gradient(circle, rgba(34, 211, 238, .2), transparent 65%);
 }
 .drg-hero > * { position: relative; }
+.drg-hero > * { min-width: 0; }
 .drg-code {
   font-family: var(--font-display); font-size: 48px; font-weight: 700; letter-spacing: 1px;
   color: var(--cyan); line-height: 1; font-variant-numeric: tabular-nums;
@@ -543,6 +547,7 @@ footer b { color: var(--muted); font-weight: 600; }
   }
   .mobile-bar .btn { flex: 1; min-height: 48px; font-size: 14px; padding: 11px 8px; }
   .wrap { padding-left: 14px; padding-right: 14px; padding-bottom: 120px; }
+  .badge { max-width: 100%; white-space: normal; }
   .toast { bottom: 92px; }
   .actions { display: none; }
   .shortcut-hint { display: none; }

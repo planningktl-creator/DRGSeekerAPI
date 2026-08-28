@@ -1,26 +1,23 @@
 /* ============================================================
-   KTL CMI DRG Seeker — App Logic v3.0 (GitHub Pages / static)
-   เรียก API CMI@MoPH ตรงจาก client (CORS เปิด *)
-   fallback: ผ่าน CORS proxy สาธารณะ เมื่อ geo/network ขัดข้อง
-   หมายเหตุ: ไม่พึ่ง google.script.run / GAS server อีกต่อไป
+   KTL CMI DRG Seeker — App Logic v3.1 (Vite SPA)
+   GitHub Pages เรียก API CMI@MoPH ตรง ส่วน Docker ใช้ same-origin /api proxy
+   ไม่ส่งข้อมูลผู้ป่วยผ่าน public CORS proxy
    ============================================================ */
 'use strict';
 
 /* ================= CONFIG ================= */
-const API = 'https://had-api.moph.go.th/cmi';
-/* CORS proxy สำรอง (สาธารณะ, ใช้เฉพาะเมื่อ fetch ตรงล้มเหลว)
-   หมายเหตุ: API ของ CMI@MoPH เปิด CORS * อยู่แล้ว + geo-block เฉพาะ IP ไทย
-   → proxy มีประโยชน์เฉพาะเมื่อ fetch ตรงล่มชั่วคราวจาก network/geo edge
-   (ตัวหลักทำงานได้เต็มที่ในไทยโดยไม่ต้องพึ่ง proxy) */
-const PROXY_FALLBACKS = [
-  'https://api.allorigins.win/raw?url=',
-  'https://corsproxy.io/?url='
-];
+const DEFAULT_API = 'https://had-api.moph.go.th/cmi';
+const API = String((import.meta.env && import.meta.env.VITE_API_BASE) || DEFAULT_API).replace(/\/+$/, '');
+const SDX_LIMIT = 10;
+const PROC_LIMIT = 20;
+const MAX_SCENARIOS = 2000;
 
 let SEX = 1;
 let SDX = [];
 let PROC = [];
 let BUSY = false;
+let ACTIVE_CONTROLLER = null;
+let PENDING_DC_STATUS = null;
 
 /* ================= ICONS ================= */
 const S = ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
@@ -41,8 +38,8 @@ const IC = {
 /* ================= HELPERS ================= */
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const clean = s => s.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-const parseCodes = raw => raw.trim().toUpperCase().split(/[\s,;]+/).map(clean).filter(Boolean);
+const clean = s => String(s == null ? '' : s).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+const parseCodes = raw => String(raw == null ? '' : raw).trim().toUpperCase().split(/[\s,;]+/).map(clean).filter(Boolean);
 
 function toast(msg, ms, type) {
   const t = $('toast');
@@ -66,44 +63,67 @@ function setPdxError(show) {
   $('pdx').setAttribute('aria-invalid', show ? 'true' : 'false');
 }
 
-/* ================= NETWORK LAYER (fetch ตรง + proxy fallback) ================= */
-async function fetchT(url, opts, ms) {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms || 30000);
-  try { return await fetch(url, Object.assign({}, opts, { signal: ctl.signal })); }
-  finally { clearTimeout(t); }
+/* ================= NETWORK LAYER ================= */
+class ApiError extends Error {
+  constructor(message, status, path) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.path = path;
+  }
 }
-/* เรียก API แบบมี fallback ผ่าน CORS proxy สาธารณะ */
-async function apiRequest(path, { method = 'GET', body = null } = {}) {
-  const url = API + '/' + path;
+
+async function fetchT(url, opts, ms, signal) {
+  const ctl = new AbortController();
+  const forwardAbort = () => ctl.abort();
+  if (signal) {
+    if (signal.aborted) throw new DOMException('ยกเลิกคำขอ', 'AbortError');
+    signal.addEventListener('abort', forwardAbort, { once: true });
+  }
+  const t = setTimeout(() => ctl.abort(), ms || 30000);
+  try {
+    return await fetch(url, Object.assign({}, opts, { signal: ctl.signal }));
+  } catch (e) {
+    if (ctl.signal.aborted) {
+      if (signal && signal.aborted) throw new DOMException('ยกเลิกคำขอ', 'AbortError');
+      const timeout = new Error('Request timeout');
+      timeout.name = 'TimeoutError';
+      throw timeout;
+    }
+    throw e;
+  } finally {
+    clearTimeout(t);
+    if (signal) signal.removeEventListener('abort', forwardAbort);
+  }
+}
+
+async function apiRequest(path, { method = 'GET', body = null, signal = null } = {}) {
+  const cleanPath = String(path || '').replace(/^\/+/, '');
+  const url = API + '/' + cleanPath;
   const opts = { method, headers: {} };
   if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
 
-  /* 1) ลอง fetch ตรงก่อน (CORS ของ CMI@MoPH เปิด *) */
+  const r = await fetchT(url, opts, method === 'POST' ? 30000 : 15000, signal);
+  if (!r.ok) throw new ApiError('HTTP ' + r.status, r.status, cleanPath);
   try {
-    const r = await fetchT(url, opts, method === 'POST' ? 30000 : 20000);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
     return await r.json();
-  } catch (directErr) {
-    /* 2) fallback ผ่าน CORS proxy (best-effort — ตัวหลัก fetch ตรงเวิร์กอยู่แล้ว) */
-    let lastErr = directErr;
-    for (const p of PROXY_FALLBACKS) {
-      try {
-        const pUrl = p + encodeURIComponent(url);
-        const ropts = { method, headers: {} };
-        if (body) { ropts.headers['Content-Type'] = 'application/json'; ropts.body = JSON.stringify(body); }
-        const r = await fetchT(pUrl, ropts, 20000);
-        if (!r.ok) throw new Error('proxy HTTP ' + r.status);
-        const ct = (r.headers.get('content-type') || '');
-        return ct.includes('json') ? await r.json() : JSON.parse(await r.text());
-      } catch (e) { lastErr = e; }
-    }
-    throw lastErr;
+  } catch (e) {
+    throw new ApiError('API ส่งข้อมูล JSON ไม่ถูกต้อง', r.status, cleanPath);
   }
 }
 /* wrapper สะดวก */
-function apiGet(path) { return apiRequest(path, { method: 'GET' }); }
-function apiPost(path, body) { return apiRequest(path, { method: 'POST', body }); }
+function apiGet(path, options = {}) { return apiRequest(path, Object.assign({ method: 'GET' }, options)); }
+function apiPost(path, body, options = {}) { return apiRequest(path, Object.assign({ method: 'POST', body }, options)); }
+
+function beginOperation() {
+  if (ACTIVE_CONTROLLER) ACTIVE_CONTROLLER.abort();
+  ACTIVE_CONTROLLER = new AbortController();
+  return ACTIVE_CONTROLLER;
+}
+function endOperation(controller) {
+  if (ACTIVE_CONTROLLER === controller) ACTIVE_CONTROLLER = null;
+}
+function isAbortError(e) { return !!e && (e.name === 'AbortError' || /abort|ยกเลิก/i.test(String(e.message || e))); }
 
 /* เลื่อนไปยัง element แบบปลอดภัย */
 function scrollToEl(el) {
@@ -135,27 +155,38 @@ function setBusy(b, which) {
 
 /* ================= D/C STATUS ================= */
 async function loadDc() {
+  const sel = $('dcStatus');
+  const note = $('dcHint');
+  sel.setAttribute('aria-busy', 'true');
   try {
     const d = await apiGet('libs/ipd-result');
     const dcList = (d && d.rows) || [];
-    const sel = $('dcStatus');
+    if (!dcList.length) throw new Error('D/C status list is empty');
     sel.innerHTML = '';
     dcList.forEach(r => {
       const o = document.createElement('option');
-      o.value = r.code;
-      o.textContent = (r.name_th || r.name) + ' (' + r.code + ')';
+      const code = String(r.code == null ? '' : r.code);
+      o.value = code;
+      o.textContent = (r.name_th || r.name || code) + ' (' + code + ')';
       sel.appendChild(o);
     });
-    if (dcList.some(r => r.code === '11')) sel.value = '11';
+    const preferred = PENDING_DC_STATUS || '11';
+    sel.value = dcList.some(r => String(r.code) === preferred) ? preferred : '11';
+    PENDING_DC_STATUS = null;
+    if (note) note.textContent = 'รายการสถานะจำหน่ายจาก CMI@MoPH พร้อมใช้งาน';
   } catch (e) {
-    $('dcStatus').innerHTML = '<option value="11">ใช้ค่าเริ่มต้น (11)</option>';
-    $('dcStatus').value = '11';
+    sel.innerHTML = '<option value="11">ใช้ค่าเริ่มต้น (11)</option>';
+    sel.value = '11';
+    PENDING_DC_STATUS = null;
+    if (note) note.textContent = 'เชื่อมต่อรายการไม่สำเร็จ — ใช้ค่าเริ่มต้น (11)';
     toast('โหลดรายการ D/C Status ไม่สำเร็จ — ใช้ค่าเริ่มต้น (11)', 3500, 'warn');
+  } finally {
+    sel.removeAttribute('aria-busy');
   }
 }
 
 /* ================= PDx AUTOCOMPLETE (ICD-10) ================= */
-let pdAcTimer = null, pdAcIndex = -1;
+let pdAcTimer = null, pdAcIndex = -1, pdAcRequest = 0;
 const pdxInput = $('pdx'), pdxList = $('pdxAc');
 function updatePdxReadiness() {
   const pdx = clean(pdxInput.value);
@@ -192,9 +223,11 @@ pdxInput.addEventListener('input', function () {
   clearTimeout(pdAcTimer);
   syncSdxVsPdx();
   if (!q) { closePdxList(); pdxList.innerHTML = ''; return; }
+  const requestId = ++pdAcRequest;
   pdAcTimer = setTimeout(async () => {
     try {
       const d = await apiGet('libs/icd10/' + encodeURIComponent(q));
+      if (requestId !== pdAcRequest || clean(pdxInput.value) !== clean(q)) return;
       renderPdxAc((d && d.rows) || []);
     } catch (e) { closePdxList(); }
   }, 300);
@@ -245,8 +278,9 @@ function bindChips(container, arr, kind) {
     if (item) { pickProcAc(item, container); return; }
     const x = e.target.closest('.chip-x');
     if (x) {
-      const i = arr.indexOf(x.dataset.c);
-      if (i >= 0) { arr.splice(i, 1); chipRow(container, arr); }
+      const current = container._arr || [];
+      const i = current.indexOf(x.dataset.c);
+      if (i >= 0) { current.splice(i, 1); chipRow(container, current); }
       return;
     }
     const inp = container.querySelector('.chip-input');
@@ -255,13 +289,17 @@ function bindChips(container, arr, kind) {
 }
 function addCodes(container, arr, codes) {
   let skipped = 0;
+  let limited = 0;
   const pdxCur = clean($('pdx').value);
+  const limit = container._kind === 'proc' ? PROC_LIMIT : SDX_LIMIT;
   codes.forEach(c => {
     if (!c || arr.includes(c)) return;
     if (container._kind === 'sdx' && c === pdxCur) { skipped++; return; }
+    if (arr.length >= limit) { limited++; return; }
     arr.push(c);
   });
   if (skipped) toast('ข้าม ' + skipped + ' รหัสที่ซ้ำกับ PDx (' + pdxCur + ')', 3000, 'warn');
+  if (limited) toast('เพิ่มได้สูงสุด ' + limit + ' รหัสสำหรับ ' + (container._kind === 'proc' ? 'Proc' : 'SDx') + ' — ข้าม ' + limited + ' รหัส', 3500, 'warn');
   if (codes.length) chipRow(container, arr);
 }
 function syncSdxVsPdx() {
@@ -273,13 +311,7 @@ function syncSdxVsPdx() {
     toast('ลบ ' + p + ' ออกจาก SDx (ซ้ำกับ PDx)', 2500, 'warn');
   }
 }
-function chipRow(container, arr) {
-  const kind = container._kind;
-  const label = kind === 'proc' ? 'เพิ่มรหัสหัตถการ' : 'เพิ่มรหัสวินิจฉัย';
-  container.innerHTML = arr.map(c =>
-    `<span class="chip">${esc(c)}<button type="button" class="chip-x" data-c="${esc(c)}" aria-label="ลบ ${esc(c)}" title="ลบ ${esc(c)}">${IC.x}</button></span>`
-  ).join('') + `<input type="text" class="chip-input" aria-label="${label}" autocomplete="off">`;
-  const inp = container.querySelector('.chip-input');
+function bindChipInput(inp, container, kind) {
   inp.addEventListener('input', () => { if (kind === 'proc') procAcSearch(inp, container); });
   inp.addEventListener('keydown', e => {
     const list = container.querySelector('.ac-list');
@@ -297,7 +329,7 @@ function chipRow(container, arr) {
       e.preventDefault();
       if (open && procAcIndex >= 0 && items[procAcIndex]) { pickProcAc(items[procAcIndex], container); return; }
       const codes = parseCodes(inp.value);
-      if (codes.length) { addCodes(container, arr, codes); focusChip(container); return; }
+      if (codes.length) { addCodes(container, container._arr, codes); focusChip(container); return; }
       if (kind === 'sdx') focusChip($('procChips'));
       else $('btnCalc').click();
     }
@@ -307,20 +339,53 @@ function chipRow(container, arr) {
     const txt = (e.clipboardData || window.clipboardData).getData('text');
     const codes = parseCodes(txt);
     if (!codes.length) return;
-    addCodes(container, arr, codes);
+    addCodes(container, container._arr, codes);
     focusChip(container);
   });
   inp.addEventListener('blur', () => {
     closeProcAc(container);
     const codes = parseCodes(inp.value);
     if (!codes.length) return;
-    addCodes(container, arr, codes);
+    addCodes(container, container._arr, codes);
+  });
+}
+function chipRow(container, arr) {
+  container._arr = arr;
+  const kind = container._kind;
+  const label = kind === 'proc' ? 'เพิ่มรหัสหัตถการ' : 'เพิ่มรหัสวินิจฉัย';
+  if (kind === 'proc') procAcRequest++;
+  let inp = container.querySelector('.chip-input');
+  if (!inp) {
+    inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'chip-input';
+    inp.setAttribute('aria-label', label);
+    inp.autocomplete = 'off';
+    bindChipInput(inp, container, kind);
+    container.appendChild(inp);
+  }
+  container.querySelectorAll('.chip, .ac-list').forEach(el => el.remove());
+  inp.value = '';
+  arr.forEach(c => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.append(document.createTextNode(c));
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'chip-x';
+    remove.dataset.c = c;
+    remove.setAttribute('aria-label', 'ลบ ' + c);
+    remove.title = 'ลบ ' + c;
+    remove.innerHTML = IC.x;
+    chip.appendChild(remove);
+    container.insertBefore(chip, inp);
   });
   if (kind === 'sdx') renderRecent();
+  syncQuickState();
 }
 
 /* ===== Proc autocomplete (ICD-9-CM /libs/icd-cm) ===== */
-let procAcTimer = null, procAcIndex = -1, procAcRows = [];
+let procAcTimer = null, procAcIndex = -1, procAcRows = [], procAcRequest = 0;
 function closeProcAc(container) {
   const l = container.querySelector('.ac-list');
   if (l) l.classList.remove('open');
@@ -336,7 +401,8 @@ function procAcSearch(inp, container) {
   const q = inp.value.trim();
   clearTimeout(procAcTimer);
   procAcIndex = -1;
-  if (!q) { closeProcAc(container); return; }
+  if (!q) { procAcRequest++; closeProcAc(container); return; }
+  const requestId = ++procAcRequest;
   procAcTimer = setTimeout(async () => {
     if (document.activeElement !== inp) return;
     let rows = [];
@@ -344,6 +410,7 @@ function procAcSearch(inp, container) {
       const d = await apiGet('libs/icd-cm/' + encodeURIComponent(q));
       rows = (d && d.rows) || [];
     } catch (e) { rows = []; }
+    if (requestId !== procAcRequest || document.activeElement !== inp) return;
     let list = container.querySelector('.ac-list');
     if (!list) {
       list = document.createElement('div');
@@ -376,12 +443,16 @@ function bindQuick(row, arr, chipsId) {
   row.querySelectorAll('.qchip').forEach(b => {
     b.addEventListener('click', () => {
       const c = b.dataset.code;
+      const target = $(chipsId);
+      const targetArr = (target && target._arr) || arr;
       const pdxCur = clean($('pdx').value);
       if (chipsId === 'sdxChips' && c === pdxCur) {
         toast('รหัส ' + c + ' ซ้ำกับ PDx — ไม่เพิ่ม', 3000, 'warn');
         return;
       }
-      if (!arr.includes(c)) { arr.push(c); chipRow($(chipsId), arr); }
+      const limit = chipsId === 'procChips' ? PROC_LIMIT : SDX_LIMIT;
+      if (!targetArr.includes(c) && targetArr.length < limit) { targetArr.push(c); chipRow(target, targetArr); }
+      else if (!targetArr.includes(c)) { toast('เพิ่มได้สูงสุด ' + limit + ' รหัส', 3000, 'warn'); return; }
       b.classList.add('added');
       b.setAttribute('aria-pressed', 'true');
       setTimeout(() => b.classList.remove('added'), 600);
@@ -390,9 +461,9 @@ function bindQuick(row, arr, chipsId) {
 }
 function renderQuick() {
   $('sdxQuick').innerHTML = '<span class="qlbl">พบบ่อย:</span>' + COMMON_DX.map(([c, label]) =>
-    `<button type="button" class="qchip" data-code="${c}" aria-pressed="false" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
+    `<button type="button" class="qchip" data-code="${c}" aria-pressed="${SDX.includes(c)}" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
   $('procQuick').innerHTML = '<span class="qlbl">พบบ่อย:</span>' + COMMON_PROC.map(([c, label]) =>
-    `<button type="button" class="qchip" data-code="${c}" aria-pressed="false" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
+    `<button type="button" class="qchip" data-code="${c}" aria-pressed="${PROC.includes(c)}" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
   bindQuick($('sdxQuick'), SDX, 'sdxChips');
   bindQuick($('procQuick'), PROC, 'procChips');
   renderRecent();
@@ -412,6 +483,17 @@ function renderRecent() {
   row.innerHTML = '<span class="qlbl">ล่าสุด:</span>' + r.map(c =>
     `<button type="button" class="qchip" data-code="${c}" title="เพิ่ม ${c}">${c}</button>`).join('');
   bindQuick(row, SDX, 'sdxChips');
+}
+function syncQuickState() {
+  [['sdxQuick', SDX], ['procQuick', PROC]].forEach(([id, values]) => {
+    const row = $(id);
+    if (!row) return;
+    row.querySelectorAll('.qchip').forEach(b => {
+      const active = values.includes(b.dataset.code);
+      b.classList.toggle('added', active);
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  });
 }
 
 /* ================= COPY ================= */
@@ -467,41 +549,96 @@ $('sexSeg').addEventListener('keydown', e => {
 });
 
 /* ================= PAYLOAD BUILDER ================= */
-function buildPayload(pdx, sdx) {
-  const dcCode = $('dcStatus').value || '11';
-  const hcode = clean($('hcode').value) || '10929';
-  const age = clampNum($('age').value, 0, 120, 0);
-  const ageDay = clampNum($('ageDay').value, 0, 364, 0);
-  const weight = clampNum($('weight').value, 0, 300, 0);
-  const losDay = clampNum($('losDay').value, 0, 9999, 0);
-  const losHour = clampNum($('losHour').value, 0, 23, 0);
-  const baseRate = clampNum($('baseRate').value, 0, 1e7, 3504);
+function clampNum(v, min, max, def) {
+  if (v === null || v === undefined || String(v).trim() === '') return def;
+  const n = +v;
+  if (Number.isNaN(n)) return def;
+  return Math.min(max, Math.max(min, n));
+}
+
+function readNumberField(id, min, max, def) {
+  const input = $(id);
+  const raw = input ? input.value.trim() : '';
+  const value = clampNum(raw, min, max, def);
+  if (input && raw !== '' && Number.isFinite(+raw) && +raw !== value) input.value = String(value);
+  if (input && raw === '') input.value = String(def);
+  return value;
+}
+
+function setInputError(id, errorId, show) {
+  const input = $(id);
+  const field = input && input.closest('.field');
+  if (field) field.classList.toggle('has-error', !!show);
+  if (input) input.setAttribute('aria-invalid', show ? 'true' : 'false');
+  const message = $(errorId);
+  if (message) message.hidden = !show;
+}
+
+function validateCase(pdx) {
+  const hcode = $('hcode').value.trim().replace(/\D/g, '');
+  const validHcode = /^\d{5}$/.test(hcode);
+  const validPdx = !!pdx;
+  setInputError('hcode', 'hcodeError', !validHcode);
+  setPdxError(!validPdx);
+  if (!validHcode) {
+    $('hcode').focus();
+    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'กรุณาระบุรหัสสถานพยาบาลเป็นตัวเลข 5 หลัก');
+    toast('กรุณาตรวจสอบ HCode ให้เป็นตัวเลข 5 หลัก', 3000, 'warn');
+    return false;
+  }
+  if (!validPdx) {
+    $('pdx').classList.add('invalid');
+    $('pdx').focus();
+    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'กรุณาระบุ PDx ก่อนคำนวณ');
+    toast('กรุณาระบุ PDx (รหัสวินิจฉัยหลัก)', 3000, 'warn');
+    setTimeout(() => $('pdx').classList.remove('invalid'), 1800);
+    return false;
+  }
+  return true;
+}
+
+function readFormState(pdx, sdx) {
+  const dcStatus = $('dcStatus').value || '11';
+  return {
+    hcode: $('hcode').value.trim().replace(/\D/g, ''),
+    sex: SEX,
+    age: readNumberField('age', 0, 120, 65),
+    ageDay: readNumberField('ageDay', 0, 364, 0),
+    weight: readNumberField('weight', 0, 300, 60),
+    losDay: readNumberField('losDay', 0, 9999, 5),
+    losHour: readNumberField('losHour', 0, 23, 0),
+    baseRate: readNumberField('baseRate', 0, 1e7, 3504),
+    dcStatus,
+    pdx: clean(pdx || ''),
+    sdx: [...new Set((sdx || []).map(clean).filter(Boolean))].slice(0, SDX_LIMIT),
+    proc: [...new Set(PROC.map(clean).filter(Boolean))].slice(0, PROC_LIMIT)
+  };
+}
+
+function buildPayloadFromState(state) {
+  const dcCode = state.dcStatus || '11';
   return {
     version: '6',
     data: [{
-      hcode: hcode,
+      hcode: state.hcode,
       hn: '', an: '1',
-      sex: SEX,
-      age: age,
-      age_day: ageDay,
-      los_day: losDay,
-      los_hour: losHour,
-      weight: weight,
+      sex: state.sex,
+      age: state.age,
+      age_day: state.ageDay,
+      los_day: state.losDay,
+      los_hour: state.losHour,
+      weight: state.weight,
       dischs: dcCode.charAt(0),
       discht: dcCode.charAt(1) || '1',
-      pdx: pdx,
-      sdx: (sdx || []).slice(0, 12),
-      proc: PROC.slice(0, 20)
+      pdx: state.pdx,
+      sdx: state.sdx,
+      proc: state.proc
     }]
   };
 }
-function clampNum(v, min, max, def) {
-  const n = +v;
-  if (isNaN(n)) return def;
-  return Math.min(max, Math.max(min, n));
-}
-async function calcOne(payload) {
-  const d = await apiPost('drg/calculate', payload);
+function buildPayload(pdx, sdx) { return buildPayloadFromState(readFormState(pdx, sdx)); }
+async function calcOne(payload, signal) {
+  const d = await apiPost('drg/calculate', payload, { signal });
   if (!d || d.status !== 200) throw new Error('Grouper ไม่ตอบกลับผลลัพธ์ (status ' + (d && d.status) + ')');
   return d;
 }
@@ -510,41 +647,39 @@ async function calcOne(payload) {
 $('btnCalc').addEventListener('click', async () => {
   if (BUSY) return;
   const pdx = clean($('pdx').value);
-  if (!pdx) {
-    setPdxError(true);
-    $('pdx').classList.add('invalid');
-    $('pdx').focus();
-    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'กรุณาระบุ PDx ก่อนคำนวณ');
-    toast('กรุณาระบุ PDx (รหัสวินิจฉัยหลัก)', 3000, 'warn');
-    setTimeout(() => $('pdx').classList.remove('invalid'), 1800);
-    return;
-  }
-  const payload = buildPayload(pdx, SDX);
+  if (!validateCase(pdx)) return;
+  const state = readFormState(pdx, SDX);
+  const payload = buildPayloadFromState(state);
+  const controller = beginOperation();
   setBusy(true, 'btnCalc');
   setCaseStatus('working', 'กำลังคำนวณ', 'ส่งข้อมูลไปยัง Grouper ทางการ');
   $('loaderTxt').textContent = 'กำลังคำนวณ DRG ผ่าน Grouper ทางการ...';
   $('loader').classList.add('show');
   try {
-    const d = await calcOne(payload);
+    const d = await calcOne(payload, controller.signal);
     const r = (d.data && d.data[0]) || {};
     if (!r.drg) throw new Error('ไม่ได้รับผลลัพธ์จาก grouper');
     renderResult(r, d.tgrp || {});
-    saveHistory(payload.data[0], r);
+    saveHistory(Object.assign({}, payload.data[0], state), r);
     saveRecent([pdx, ...SDX]);
     toast('คำนวณเสร็จ · DRG ' + r.drg + ' · ADJRW ' + fmt(r.adjrw), 3000, 'ok');
     setCaseStatus('success', 'คำนวณสำเร็จ', 'DRG ' + r.drg + ' · ADJRW ' + fmt(r.adjrw));
   } catch (e) {
+    if (isAbortError(e)) {
+      setCaseStatus('error', 'ยกเลิกคำขอแล้ว', 'ยังไม่มีการบันทึกผลลัพธ์');
+      return;
+    }
     renderError(e);
     setCaseStatus('error', 'คำนวณไม่สำเร็จ', friendlyError(e));
   } finally {
     $('loader').classList.remove('show');
+    endOperation(controller);
     setBusy(false);
   }
 });
 
 /* ================= PERMUTE ================= */
-const SDX_GROUP = 12;
-const MAX_SCENARIOS = 2000;
+const SDX_GROUP = SDX_LIMIT;
 let STOP_PERMUTE = false;
 
 function* combinations(arr, k) {
@@ -579,7 +714,7 @@ function buildScenarios(codes, currentPdx) {
 $('btnPermute').addEventListener('click', async () => {
   if (BUSY) return;
   const pdx = clean($('pdx').value);
-  if (!pdx) { setPdxError(true); setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'กรุณาระบุ PDx ก่อนเปรียบเทียบ'); toast('กรุณาระบุ PDx (รหัสวินิจฉัยหลัก)', 3000, 'warn'); return; }
+  if (!validateCase(pdx)) return;
   const codes = [...new Set([pdx, ...SDX.map(clean)])].filter(Boolean);
   if (codes.length < 2) { toast('เพิ่ม SDx อย่างน้อย 1 รหัส เพื่อให้สลับเป็น PDx ได้', 3500, 'warn'); return; }
   if (codes.length > 30) { toast('รหัสเยอะเกินไป (สูงสุด 30) — ลด SDx ก่อน', 3500, 'warn'); return; }
@@ -592,33 +727,39 @@ $('btnPermute').addEventListener('click', async () => {
   )) { return; }
   const t0 = Date.now();
   STOP_PERMUTE = false;
+  const controller = beginOperation();
 
   setBusy(true);
   setCaseStatus('working', 'กำลังเปรียบเทียบ PDx', 'ทดสอบ ' + scenarios.length + ' ทางเลือก · หยุดได้ทุกเมื่อ');
-  renderPermuteStream(scenarios.length, capped);
+  renderPermuteStream(scenarios.length, capped, controller);
   const results = [];
-  for (let i = 0; i < scenarios.length; i++) {
-    if (STOP_PERMUTE) break;
-    const s = scenarios[i];
-    updatePermuteProgress(i + 1, scenarios.length, s.pdx, t0);
-    const payload = buildPayload(s.pdx, s.sdx);
-    try {
-      const d = await calcOne(payload);
-      const r = (d.data && d.data[0]) || {};
-      results.push({ pdx: s.pdx, sdx: s.sdx, r, err: false });
-      permAppendRow(i + 1, s, r, false);
-    } catch (e) {
-      results.push({ pdx: s.pdx, sdx: s.sdx, r: { drg: '—', err: -1, error: String(e.message || e) }, err: true });
-      permAppendRow(i + 1, s, null, true);
+  try {
+    for (let i = 0; i < scenarios.length; i++) {
+      if (STOP_PERMUTE) break;
+      const s = scenarios[i];
+      updatePermuteProgress(i + 1, scenarios.length, s.pdx, t0);
+      const payload = buildPayload(s.pdx, s.sdx);
+      try {
+        const d = await calcOne(payload, controller.signal);
+        const r = (d.data && d.data[0]) || {};
+        results.push({ pdx: s.pdx, sdx: s.sdx, r, err: false });
+        permAppendRow(i + 1, s, r, false);
+      } catch (e) {
+        if (isAbortError(e) && STOP_PERMUTE) break;
+        results.push({ pdx: s.pdx, sdx: s.sdx, r: { drg: '—', err: -1, error: String(e.message || e) }, err: true });
+        permAppendRow(i + 1, s, null, true);
+      }
     }
+  } finally {
+    endOperation(controller);
+    setBusy(false);
   }
-  setBusy(false);
   saveRecent(codes);
   renderPermute(results, pdx, Date.now() - t0, capped, STOP_PERMUTE);
   setCaseStatus('success', STOP_PERMUTE ? 'หยุดการเปรียบเทียบแล้ว' : 'เปรียบเทียบเสร็จ', results.length + ' ทางเลือก · ดูอันดับ PDx ด้านล่าง');
 });
 
-function renderPermuteStream(total, capped) {
+function renderPermuteStream(total, capped, controller) {
   $('resultBody').innerHTML = `
     <div class="alert ok" style="margin-bottom:4px;">${IC.repeat} <span>
       กำลังทดสอบ <b id="permDone">0</b>/<b>${total}</b> แบบ${capped ? ' (จำกัดสูงสุด ' + MAX_SCENARIOS + ' แบบ)' : ''}
@@ -634,7 +775,12 @@ function renderPermuteStream(total, capped) {
       <tr id="permEmpty"><td colspan="10" class="n" style="text-align:center;">กำลังรอผลแรก...</td></tr>
     </table></div>`;
   const st = $('btnStopPerm');
-  if (st) st.addEventListener('click', () => { STOP_PERMUTE = true; st.disabled = true; st.textContent = 'กำลังหยุด...'; });
+  if (st) st.addEventListener('click', () => {
+    STOP_PERMUTE = true;
+    st.disabled = true;
+    st.textContent = 'กำลังหยุด...';
+    if (controller) controller.abort();
+  });
 }
 function updatePermuteProgress(done, total, pdx, t0) {
   const el = $('permDone'), bar = $('permBar'), eta = $('permEta'), now = $('permNow');
@@ -724,7 +870,7 @@ function renderPermute(results, currentPdx, elapsedMs, capped, stopped) {
         <td>${s.err ? '—' : fmt(adj)}</td>
         <td>${delta}</td>
         <td>${s.err ? '—' : fmt(s.r.wtlos)}</td>
-        <td>${s.err ? '—' : (s.r.ot ?? '—')}</td>
+        <td>${s.err ? '—' : esc(s.r.ot ?? '—')}</td>
         <td>${statusTxt}</td>
       </tr>`;
   });
@@ -762,7 +908,7 @@ function renderResult(r, tgrp) {
       <div class="stat"><div class="k">RW</div><div class="v">${fmt(r.rw)}</div></div>
       <div class="stat"><div class="k">ADJRW</div><div class="v amber">${fmt(r.adjrw)}</div></div>
       <div class="stat"><div class="k">WTLOS</div><div class="v">${fmt(r.wtlos)}</div></div>
-      <div class="stat"><div class="k">OT</div><div class="v">${r.ot ?? '—'}</div></div>
+      <div class="stat"><div class="k">OT</div><div class="v">${esc(r.ot ?? '—')}</div></div>
       <div class="stat"><div class="k">LOS</div><div class="v">${fmt(losShow)}</div></div>
     </div>
     <div class="alert ok" style="margin-top:14px;">
@@ -792,12 +938,8 @@ function renderResult(r, tgrp) {
   if (errs.length) loadDesc('drg-error/' + errs[0], 'errTxt');
   if (warns.length) {
     const txt = $('warnTxt');
-    let acc = [];
-    warns.forEach((w, i) => {
-      loadDesc('drg-warning/' + w, null, (name) => {
-        acc[i] = name;
-        if (acc.filter(x => x).length === warns.length) txt.textContent = acc.join('; ');
-      });
+    Promise.all(warns.map(w => loadDesc('drg-warning/' + w))).then(names => {
+      if (txt) txt.textContent = names.filter(Boolean).join('; ') || 'ไม่พบคำอธิบายเพิ่มเติม';
     });
   }
 }
@@ -806,37 +948,45 @@ function fmtNum(n) { return (+n || 0).toLocaleString('th-TH', { maximumFractionD
 
 async function loadDrgName(drg) {
   const cached = cacheGet('drg_' + drg);
-  if (cached) { if ($('drgNameRow')) $('drgNameRow').textContent = cached; return; }
+  if (cached) { if ($('drgNameRow')) $('drgNameRow').textContent = cached; return cached; }
   try {
     const d = await apiGet('libs/drg-name/' + drg);
     const row = (d && d.rows && d.rows[0]);
     const name = (row && row.drgname) || '';
     if (name) cacheSet('drg_' + drg, name);
-    if ($('drgNameRow')) $('drgNameRow').textContent = name || '';
-  } catch (e) { }
+    if ($('drgNameRow')) $('drgNameRow').textContent = name || 'ไม่พบชื่อ DRG จาก API';
+    return name || 'ไม่พบชื่อ DRG จาก API';
+  } catch (e) {
+    if ($('drgNameRow')) $('drgNameRow').textContent = 'โหลดชื่อ DRG ไม่สำเร็จ';
+    return 'โหลดชื่อ DRG ไม่สำเร็จ';
+  }
 }
-async function loadDesc(path, elId, cb) {
+async function loadDesc(path, elId) {
   const key = path.replace(/[^A-Za-z0-9]/g, '_');
   const cached = cacheGet(key);
   if (cached) {
     if (elId && $(elId)) $(elId).textContent = cached;
-    if (cb) cb(cached);
-    return;
+    return cached;
   }
   try {
     const d = await apiGet(path);
     const row = (d && d.rows && d.rows[0]);
     const name = row ? (row.name || row.name_th || '') : '';
     if (name) cacheSet(key, name);
-    if (elId && $(elId)) $(elId).textContent = name;
-    if (cb) cb(name);
-  } catch (e) { if (cb) cb(''); }
+    if (elId && $(elId)) $(elId).textContent = name || 'ไม่พบคำอธิบายเพิ่มเติม';
+    return name || 'ไม่พบคำอธิบายเพิ่มเติม';
+  } catch (e) {
+    if (elId && $(elId)) $(elId).textContent = 'โหลดคำอธิบายไม่สำเร็จ';
+    return 'โหลดคำอธิบายไม่สำเร็จ';
+  }
 }
 
 function friendlyError(e) {
   const msg = String(e && (e.message || e) || '');
-  if (/abort|timeout/i.test(msg)) return 'การเชื่อมต่อใช้เวลานานเกินไป กรุณาตรวจสอบเครือข่ายแล้วลองใหม่';
-  if (/network|fetch|proxy/i.test(msg)) return 'เชื่อมต่อ CMI@MoPH ไม่สำเร็จ กรุณาใช้งานจากเครือข่ายในประเทศไทยหรือ VPN ของโรงพยาบาล';
+  if (isAbortError(e) || /timeout/i.test(msg)) return 'การเชื่อมต่อใช้เวลานานเกินไปหรือถูกยกเลิก กรุณาตรวจสอบเครือข่ายแล้วลองใหม่';
+  if (e && e.status === 404) return 'ไม่พบ API หรือคำขอถูกปฏิเสธจากตำแหน่งเครือข่าย — API นี้ใช้งานจากเครือข่ายในประเทศไทยหรือ VPN ของโรงพยาบาล';
+  if (e && (e.status === 400 || e.status === 422)) return 'ข้อมูลเคสไม่ถูกต้อง กรุณาตรวจสอบรหัสและข้อมูลผู้ป่วย';
+  if (/network|fetch/i.test(msg)) return 'เชื่อมต่อ CMI@MoPH ไม่สำเร็จ กรุณาใช้งานจากเครือข่ายในประเทศไทยหรือ VPN ของโรงพยาบาล';
   if (/grouper|ผลลัพธ์|status/i.test(msg)) return 'Grouper ไม่ส่งผลลัพธ์กลับมา กรุณาตรวจสอบรหัสและลองใหม่';
   return 'ตรวจสอบข้อมูลที่กรอก แล้วลองคำนวณอีกครั้ง';
 }
@@ -850,22 +1000,62 @@ function renderError(e) {
 }
 
 /* ================= HISTORY ================= */
+function readHistory() {
+  try {
+    const value = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch (e) { return []; }
+}
+function historyCase(item) {
+  const c = item && item.case && typeof item.case === 'object' ? item.case : (item || {});
+  return {
+    hcode: String(c.hcode || '10929').replace(/\D/g, ''),
+    sex: +c.sex === 2 ? 2 : 1,
+    age: c.age ?? 65,
+    ageDay: c.ageDay ?? c.age_day ?? 0,
+    weight: c.weight ?? 60,
+    losDay: c.losDay ?? c.los_day ?? 5,
+    losHour: c.losHour ?? c.los_hour ?? 0,
+    baseRate: c.baseRate ?? 3504,
+    dcStatus: c.dcStatus || String(c.dischs || '1') + String(c.discht || '1'),
+    pdx: clean(c.pdx || ''),
+    sdx: Array.isArray(c.sdx) ? c.sdx.map(clean).filter(Boolean).slice(0, SDX_LIMIT) : [],
+    proc: Array.isArray(c.proc) ? c.proc.map(clean).filter(Boolean).slice(0, PROC_LIMIT) : []
+  };
+}
 function saveHistory(pat, r) {
-  let h = [];
-  try { h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]'); } catch (e) {}
-  h.unshift({ ts: Date.now(), pdx: pat.pdx, drg: r.drg, rw: r.rw, adjrw: r.adjrw, sdx: pat.sdx || [], proc: pat.proc || [] });
+  const state = historyCase(Object.assign({}, pat, { pdx: pat.pdx, sdx: pat.sdx, proc: pat.proc }));
+  let h = readHistory();
+  h.unshift({
+    schema: 2,
+    ts: Date.now(),
+    pdx: state.pdx,
+    drg: r.drg,
+    rw: r.rw,
+    adjrw: r.adjrw,
+    hcode: state.hcode,
+    sex: state.sex,
+    age: state.age,
+    ageDay: state.ageDay,
+    weight: state.weight,
+    losDay: state.losDay,
+    losHour: state.losHour,
+    baseRate: state.baseRate,
+    dcStatus: state.dcStatus,
+    sdx: state.sdx,
+    proc: state.proc
+  });
   h = h.slice(0, 10);
   try { localStorage.setItem('ktl_drg_hist', JSON.stringify(h)); } catch (e) {}
   renderHistory();
 }
 function renderHistory() {
-  let h = [];
-  try { h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]'); } catch (e) {}
+  const h = readHistory();
   $('histBody').innerHTML = h.length ? h.map((x, i) =>
-    `<div class="hist-item" data-idx="${i}" role="button" tabindex="0" title="โหลดเคส ${esc(x.pdx)} กลับมาทั้งหมด">
+    `<div class="hist-item" data-idx="${i}" role="button" tabindex="0" title="โหลดเคส ${esc(historyCase(x).pdx)} กลับมาทั้งหมด">
        <span class="drg">${esc(x.drg)}</span>
-       <span>${esc(x.pdx)}${(x.sdx && x.sdx.length) ? ' +' + x.sdx.length : ''}</span>
-       <span class="rw">RW ${(+x.rw).toFixed(4)} · ADJRW ${(+x.adjrw).toFixed(4)}</span>
+       <span>${esc(historyCase(x).pdx)}${historyCase(x).sdx.length ? ' +' + historyCase(x).sdx.length : ''}</span>
+       <span class="rw">RW ${fmt(x.rw)} · ADJRW ${fmt(x.adjrw)}</span>
        <span class="time">${new Date(x.ts).toLocaleTimeString('th-TH')}</span>
      </div>`
   ).join('') : '<div class="hist-empty"><div class="hist-empty-ic" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>ยังไม่มีประวัติ<br><span>คำนวณเคสแรกเพื่อบันทึกไว้ที่นี่</span></div>';
@@ -874,16 +1064,40 @@ function renderHistory() {
       const idx = +el.dataset.idx;
       const item = h[idx];
       if (!item) return;
-      $('pdx').value = item.pdx;
-      SDX = item.sdx || []; PROC = item.proc || [];
-      chipRow($('sdxChips'), SDX); chipRow($('procChips'), PROC);
-      syncSdxVsPdx();
-      updatePdxReadiness();
-      toast('โหลดเคส ' + item.pdx + ' กลับมาแล้ว', 2500, 'ok');
+      restoreHistoryItem(item, true);
     };
     el.addEventListener('click', activate);
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
   });
+}
+
+function restoreHistoryItem(item, announce) {
+  const c = historyCase(item);
+  $('hcode').value = c.hcode || '10929';
+  $('age').value = c.age;
+  $('ageDay').value = c.ageDay;
+  $('weight').value = c.weight;
+  $('losDay').value = c.losDay;
+  $('losHour').value = c.losHour;
+  $('baseRate').value = c.baseRate;
+  $('pdx').value = c.pdx;
+  setSex(c.sex);
+  SDX = c.sdx;
+  PROC = c.proc;
+  PENDING_DC_STATUS = c.dcStatus;
+  const dc = $('dcStatus');
+  if ([...dc.options].some(o => o.value === c.dcStatus)) dc.value = c.dcStatus;
+  chipRow($('sdxChips'), SDX);
+  chipRow($('procChips'), PROC);
+  syncSdxVsPdx();
+  setInputError('hcode', 'hcodeError', false);
+  setPdxError(false);
+  updatePdxReadiness();
+  if (announce) {
+    $('resultBody').innerHTML = emptyState();
+    setCaseStatus('ready', 'โหลดเคสแล้ว', 'ตรวจสอบข้อมูลแล้วกดคำนวณเพื่ออัปเดตผลลัพธ์');
+    toast('โหลดเคส ' + c.pdx + ' กลับมาพร้อมข้อมูลทั้งเคสแล้ว', 2500, 'ok');
+  }
 }
 $('btnClearHist').addEventListener('click', () => {
   try { localStorage.removeItem('ktl_drg_hist'); } catch (e) {}
@@ -898,12 +1112,15 @@ $('btnReset').addEventListener('click', () => {
   $('age').value = 65; $('ageDay').value = 0; $('weight').value = 60;
   $('losDay').value = 5; $('losHour').value = 0; $('baseRate').value = 3504;
   $('pdx').value = '';
+  $('dcStatus').value = '11';
+  PENDING_DC_STATUS = null;
   setSex(1);
   SDX = []; PROC = [];
   chipRow($('sdxChips'), SDX);
   chipRow($('procChips'), PROC);
   $('resultBody').innerHTML = emptyState();
   $('pdx').classList.remove('invalid');
+  setInputError('hcode', 'hcodeError', false);
   setPdxError(false);
   setCaseStatus('ready', 'พร้อมคำนวณ', 'ฟอร์มถูกล้างแล้ว · กรอก PDx เพื่อเริ่มใหม่');
   closePdxList();
@@ -933,21 +1150,22 @@ function initTheme() {
 }
 
 /* ================= INIT ================= */
-(function restore() {
-  try {
-    const h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]');
-    if (h.length) $('pdx').value = h[0].pdx;
-  } catch (e) {}
-})();
 bindChips($('sdxChips'), SDX, 'sdx');
 bindChips($('procChips'), PROC, 'proc');
 chipRow($('sdxChips'), SDX);
 chipRow($('procChips'), PROC);
+(function restore() {
+  const h = readHistory();
+  if (h.length) restoreHistoryItem(h[0], false);
+})();
 loadDc();
 renderHistory();
 renderQuick();
 initTheme();
 updatePdxReadiness();
-if (window.matchMedia && window.matchMedia('(pointer:fine)').matches) {
+$('hcode').addEventListener('input', () => {
+  if (/^\d{5}$/.test($('hcode').value.trim())) setInputError('hcode', 'hcodeError', false);
+});
+if (window.matchMedia && window.matchMedia('(pointer:fine)').matches && window.innerWidth > 640) {
   $('pdx').focus();
 }
