@@ -717,10 +717,10 @@ function renderPermuteStream(total, capped) {
       <button type="button" class="mini-btn" id="btnStopPerm">${IC.square} หยุด</button>
     </div>
     <div class="rank-row" id="permRank" style="display:none;"></div>
-    <div class="perm-wrap"><table class="perm-table stream" id="permTable">
+    <div class="perm-wrap"><table class="perm-table stream" id="permTable"><tbody id="permTbody">
       <tr><th>#</th><th>PDx</th><th>SDx</th><th>DRG</th><th>MDC</th><th>RW</th><th>ADJRW</th><th>ΔADJRW</th><th>WTLOS</th><th>OT</th><th>ผล</th></tr>
       <tr id="permEmpty"><td colspan="11" class="n" style="text-align:center;">กำลังรอผลแรก...</td></tr>
-    </table></div>`;
+    </tbody></table></div>`;
   const st = $('btnStopPerm');
   if (st) st.addEventListener('click', () => { STOP_PERMUTE = true; st.disabled = true; st.textContent = 'กำลังหยุด...'; });
 }
@@ -736,7 +736,10 @@ function updatePermuteProgress(done, total, pdx, t0) {
   }
 }
 function permAppendRow(i, s, r, isErr) {
-  const tb = $('permTable'), empty = $('permEmpty');
+  /* แถวทั้งหมดอยู่ใน tbody เดียวกัน — append/insertBefore คนละ parent ไม่ได้
+     (แถวเคยถูก append ตรงเข้า <table> ปนกับ implicit tbody ของ header
+     → insertBefore แถว baseline ชน text node ใน tbody → NotFoundError) */
+  const tb = $('permTbody'), empty = $('permEmpty');
   if (!tb) return;
   if (empty) empty.remove();
   const tr = document.createElement('tr');
@@ -799,8 +802,8 @@ function renderPermute(results, currentPdx, elapsedMs, capped, stopped, baseline
 
   /* ---- ตาราง: patch แถวที่ stream ไว้แล้ว แทนการ rebuild ทั้งก้อน
      (rebuild 600 แถวใน innerHTML ครั้งเดียวทำ layout ค้าง + เสีย scroll) ---- */
-  let tb = $('permTable');
-  if (!tb) { renderPermuteStream(results.length, capped); tb = $('permTable'); }
+  let tb = $('permTbody');
+  if (!tb) { renderPermuteStream(results.length, capped); tb = $('permTbody'); }
   if (tb) {
     results.forEach(s => {
       const tr = tb.querySelector('tr[data-i="' + s.idx + '"]');
