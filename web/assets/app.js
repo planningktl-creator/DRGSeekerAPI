@@ -580,8 +580,13 @@ $('btnCalc').addEventListener('click', async () => {
 
 /* ================= PERMUTE ================= */
 const SDX_GROUP = 12;
-const MAX_SCENARIOS = 2000;
+const MAX_SCENARIOS = 600;
+const PERM_CONCURRENCY = 3;    /* ยิงขนานต่อ chunk — สุภาพกับเซิร์ฟเวอร์ สรท. */
+const PERM_SEC_PER_CALL = 1.4; /* อัตราเฉลี่ยต่อเคส จากการใช้งานจริง */
+const PERM_CONFIRM_SEC = 120;  /* เตือนยืนยันเมื่อประเมินเวลาเกิน ~2 นาที */
 let STOP_PERMUTE = false;
+const permEstimateSec = n => Math.ceil(n * PERM_SEC_PER_CALL / PERM_CONCURRENCY);
+const permEtaTxt = sec => sec >= 90 ? Math.ceil(sec / 60) + ' นาที' : Math.ceil(sec) + ' วินาที';
 
 function* combinations(arr, k) {
   const n = arr.length;
@@ -621,9 +626,10 @@ $('btnPermute').addEventListener('click', async () => {
   if (codes.length > 30) { toast('รหัสเยอะเกินไป (สูงสุด 30) — ลด SDx ก่อน', 3500, 'warn'); return; }
 
   const { scenarios, capped } = buildScenarios(codes, pdx);
-  if (scenarios.length > 60 && !window.confirm(
+  const estSec = permEstimateSec(scenarios.length);
+  if (estSec > PERM_CONFIRM_SEC && !window.confirm(
     'จะทดสอบ ' + scenarios.length + ' ทางเลือก (สลับ SDx→PDx)\n' +
-    'ประมาณ ' + Math.ceil(scenarios.length * 1.4 / 60) + ' นาที\n\n' +
+    'ประมาณ ' + permEtaTxt(estSec) + '\n\n' +
     'แน่ใจว่าจะเปรียบเทียบทั้งหมด?\n(กด OK เพื่อดำเนินต่อ / Cancel เพื่อยกเลิก)'
   )) { return; }
   const t0 = Date.now();
@@ -632,33 +638,44 @@ $('btnPermute').addEventListener('click', async () => {
   setBusy(true);
   setCaseStatus('working', 'กำลังเปรียบเทียบ PDx', 'ทดสอบ ' + scenarios.length + ' ทางเลือก · หยุดได้ทุกเมื่อ');
   renderPermuteStream(scenarios.length, capped);
-  const results = [];
-  for (let i = 0; i < scenarios.length; i++) {
+
+  /* baseline = เคสตามที่กรอกจริง (PDx ปัจจุบัน + SDx ทั้งชุดที่เห็นบนจอ)
+     ใช้เป็นฐานของคอลัมน์ ΔADJRW — แทนการเดาจาก scenario แรกที่พบ
+     (เมื่อ SDx > 12 ตัว scenario แรกเป็นแค่ส่วนย่อยหนึ่ง ไม่ใช่เคสจริง) */
+  let baselineAdj = null, baselineRes = null;
+  try {
+    const base = await calcOne(buildPayload(pdx, SDX));
+    baselineRes = (base.data && base.data[0]) || null;
+    baselineAdj = baselineRes ? (baselineRes.adjrw || null) : null;
+  } catch (e) { baselineAdj = null; baselineRes = null; }
+
+  const results = new Array(scenarios.length);
+  for (let i = 0; i < scenarios.length; i += PERM_CONCURRENCY) {
     if (STOP_PERMUTE) break;
-    const s = scenarios[i];
-    updatePermuteProgress(i + 1, scenarios.length, s.pdx, t0);
-    const payload = buildPayload(s.pdx, s.sdx);
-    try {
-      const d = await calcOne(payload);
-      const r = (d.data && d.data[0]) || {};
-      results.push({ pdx: s.pdx, sdx: s.sdx, r, err: false });
-      permAppendRow(i + 1, s, r, false);
-    } catch (e) {
-      results.push({ pdx: s.pdx, sdx: s.sdx, r: { drg: '—', err: -1, error: String(e.message || e) }, err: true });
-      permAppendRow(i + 1, s, null, true);
-    }
+    const chunk = scenarios.slice(i, i + PERM_CONCURRENCY);
+    await Promise.all(chunk.map(async (s, k) => {
+      try {
+        const d = await calcOne(buildPayload(s.pdx, s.sdx));
+        results[i + k] = { pdx: s.pdx, sdx: s.sdx, r: (d.data && d.data[0]) || {}, err: false };
+      } catch (e) {
+        results[i + k] = { pdx: s.pdx, sdx: s.sdx, r: { drg: '—', err: -1, error: String(e.message || e) }, err: true };
+      }
+    }));
+    chunk.forEach((s, k) => permAppendRow(i + k + 1, s, results[i + k].err ? null : results[i + k].r, results[i + k].err));
+    updatePermuteProgress(Math.min(i + PERM_CONCURRENCY, scenarios.length), scenarios.length, chunk[0].pdx, t0);
   }
+  const got = results.filter(Boolean);
   setBusy(false);
   saveRecent(codes);
-  renderPermute(results, pdx, Date.now() - t0, capped, STOP_PERMUTE);
-  setCaseStatus('success', STOP_PERMUTE ? 'หยุดการเปรียบเทียบแล้ว' : 'เปรียบเทียบเสร็จ', results.length + ' ทางเลือก · ดูอันดับ PDx ด้านล่าง');
+  renderPermute(got, pdx, Date.now() - t0, capped, STOP_PERMUTE, baselineAdj, baselineRes);
+  setCaseStatus('success', STOP_PERMUTE ? 'หยุดการเปรียบเทียบแล้ว' : 'เปรียบเทียบเสร็จ', got.length + ' ทางเลือก · ดูอันดับ PDx ด้านล่าง');
 });
 
 function renderPermuteStream(total, capped) {
   $('resultBody').innerHTML = `
     <div class="alert ok" style="margin-bottom:4px;">${IC.repeat} <span>
       กำลังทดสอบ <b id="permDone">0</b>/<b>${total}</b> แบบ${capped ? ' (จำกัดสูงสุด ' + MAX_SCENARIOS + ' แบบ)' : ''}
-      · เหลือเวลาประมาณ <b id="permEta">${Math.ceil(total * 1.4 / 60)}</b> นาที
+      · เหลือเวลาประมาณ <b id="permEta">${permEtaTxt(permEstimateSec(total))}</b>
     </span></div>
     <div class="prog"><i id="permBar"></i></div>
     <div class="perm-status-line">
@@ -702,9 +719,14 @@ function permAppendRow(i, s, r, isErr) {
   tb.appendChild(tr);
 }
 
-function renderPermute(results, currentPdx, elapsedMs, capped, stopped) {
-  const cur = results.find(x => x.pdx === currentPdx && !x.err);
-  const curAdj = cur ? (cur.r.adjrw || 0) : null;
+function renderPermute(results, currentPdx, elapsedMs, capped, stopped, baselineAdj, baselineRes) {
+  if (!results.length) {
+    $('resultBody').innerHTML = '<div class="alert warn">' + IC.warn + ' <span>ไม่มีผลลัพธ์ — อาจหยุดก่อนแบบแรกเสร็จ หรือเครือข่ายไม่พร้อม (API ใช้ได้จาก IP ไทยเท่านั้น) ลองอีกครั้ง</span></div>';
+    scrollToEl($('resultCard'));
+    toast('ไม่มีผลลัพธ์จากการเปรียบเทียบ', 3000, 'warn');
+    return;
+  }
+  const curAdj = baselineAdj != null ? baselineAdj : null;
 
   const sorted = [...results].sort((a, b) => {
     const va = a.err ? -1 : (a.r.adjrw || 0);
@@ -727,6 +749,7 @@ function renderPermute(results, currentPdx, elapsedMs, capped, stopped) {
 
   let html = `
     <div class="alert ok" style="margin-bottom:4px;">${IC.repeat} <span>ทดสอบ <b>${results.length}</b> แบบ (สลับ SDx→PDx ทุกชุด ${SDX_GROUP} ตัว) · ใช้เวลา ${(elapsedMs / 1000).toFixed(1)} วินาที${note}
+    · ฐานเทียบ Δ = เคสตามที่กรอก (ADJRW ${curAdj !== null ? fmt(curAdj) : '—'})
     ${bestPdx ? ` · <b>แนะนำ PDx = ${esc(bestPdx)}</b> (ADJRW สูงสุด)` : ''}</span></div>
     ${rankHtml}
     <div class="perm-wrap"><table class="perm-table">
