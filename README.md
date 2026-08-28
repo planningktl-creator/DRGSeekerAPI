@@ -24,7 +24,7 @@ Static Web App บน **GitHub Pages** สำหรับบุคลากร�
 - **ประวัติการคำนวณ** — เก็บใน `localStorage` (โหลดเคสกลับทั้ง PDx/SDx/Proc)
 - **สลับธีม** — สว่าง/เข้ม เก็บค่าใน `localStorage`
 - **การ์ดลัด (Quick)** — ชุดค่าตัวอย่างกดใช้เร็ว
-- **Proxy fallback** — ถ้า client fetch ติด CORS/geo จะส่งผ่าน GAS server (`UrlFetchApp`)
+- **Proxy fallback** — ถ้า fetch ตรงล้มชั่วคราว รายการค้นหา (GET `/libs/*`) จะลองผ่าน CORS proxy สาธารณะ — **ห้ามส่งข้อมูลเคสผู้ป่วย** (`/drg/calculate`) ผ่าน proxy เด็ดขาด
 
 ---
 
@@ -69,9 +69,7 @@ gas-app/                             # (เก็บไว้เป็น refere
 | GET | `/libs/drg-name/{drg}` | ตาราง DRG (rw0d, rw, wtlos, ot, mdf, drgname) |
 | GET | `/libs/drg-error/{code}` | คำอธิบาย error code |
 | GET | `/libs/drg-warning/{code}` | คำอธิบาย warning code (ภาษาไทย) |
-| GET | `/libs/ipd-result` | รายการสถานะจำหน่าย 29 รายการ |
-
-> เอกสารอ้างอิงฉบับเต็ม: `CMI_MOPH_DRG_API_Reference.md` (โฟลเดอร์ parent)
+| GET | `/libs/ipd-result` | รายการสถานะจำหน่าย (D/C status) |
 
 ---
 
@@ -91,6 +89,8 @@ git add web/ && git commit -m "fix: ..." && git push
 
 ### ตรวจสอบ/แก้ fallback proxy
 `web/assets/app.js` → ค่าคงที่ `PROXY_FALLBACKS` (ตัวที่ใช้เมื่อ fetch ตรงล่มชั่วคราว)
+fallback ใช้ได้เฉพาะ **GET `/libs/*`** เท่านั้น (ค้นหาชื่อยา/โรค/DRG) —
+`apiRequest` บล็อกการส่ง `/drg/calculate` ผ่าน proxy เพื่อไม่ให้ข้อมูลเคสผู้ป่วยรั่วไหลไปบุคคลที่สาม
 ตัวหลัก (fetch ตรง) ทำงานได้เสมอในไทย เพราะ CMI@MoPH เปิด CORS `*`
 
 ---
@@ -98,7 +98,7 @@ git add web/ && git commit -m "fix: ..." && git push
 ## 🛠️ หมายเหตุทางเทคนิค
 
 - **Static hosting**: ทำงานจากเบราว์เซอร์ล้วน ไม่มี backend — เรียก CMI@MoPH ตรงผ่าน CORS
-- **CORS proxy fallback**: เป็นแค่ safety net เมื่อ fetch ตรงล่มชั่วคราว (ตัวหลักในไทยทำงานได้เสมอ)
+- **CORS proxy fallback**: safety net เฉพาะ GET `/libs/*` เมื่อ fetch ตรงล่มชั่วคราว — ไม่พึ่ง GAS server อีกต่อไป และไม่ส่งข้อมูลเคสผู้ป่วยผ่าน proxy
 - **API เร็ว ~1.4 วินาที/เคส** (รัน EXE บนเซิร์ฟเวอร์ของ สรท.)
 - **`gas-app/`**: โค้ดเวอร์ชัน GAS เดิมเก็บไว้เป็น reference เท่านั้น ไม่ได้ deploy แล้ว
 

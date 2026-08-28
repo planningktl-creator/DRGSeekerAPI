@@ -1347,8 +1347,8 @@ async function calcOne(payload) {
   try { d = await apiPost('drg/calculate', payload); }
   catch (e) {
     d = await serverCalc(payload);          /* fallback ผ่าน GAS */
-    if (!d || d.status !== 200) throw new Error('server proxy failed');
   }
+  if (!d || d.status !== 200) throw new Error('Grouper ไม่ตอบกลับผลลัพธ์ (status ' + (d && d.status) + ')');
   return d;
 }
 
