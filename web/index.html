@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="เครื่องมือคำนวณ DRG ออนไลน์ รพ.กันทรลักษ์ — ใช้ Grouper ทางการ CMI@MoPH (TGrp6305 v6.3.5) บน GitHub Pages">
+  <title>KTL CMI DRG Seeker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2314b8a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-4l-3 9L9 3l-3 9H2'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <div>
+        <h1>KTL CMI DRG Seeker</h1>
+        <div class="sub">โรงพยาบาลกันทรลักษ์ · งานยุทธศาสตร์ · เครือข่าย CMI@MoPH</div>
+      </div>
+    </div>
+    <span class="badge"><span class="dot" aria-hidden="true"></span>Grouper ทางการ CMI@MoPH · TGrp6305 v6.3.5</span>
+    <button type="button" class="theme-btn" id="btnTheme" title="สลับธีม สว่าง/เข้ม" aria-pressed="false">
+      <svg class="theme-ic" id="themeIc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      <span class="theme-lbl" id="themeLbl">ธีมสว่าง</span>
+    </button>
+  </header>
+
+  <div class="grid">
+
+    <!-- ============ FORM ============ -->
+    <div class="card form-card">
+      <div class="card-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg> ข้อมูลผู้ป่วย <span class="line"></span></div>
+      <div class="section-note">เริ่มจากข้อมูลที่จำเป็น แล้วเติมรายละเอียดการรักษาเพื่อให้ Grouper คำนวณได้แม่นยำ</div>
+
+      <div class="field">
+        <label class="lbl" for="hcode">รหัสสถานพยาบาล (HCode) <span class="required">จำเป็น</span></label>
+        <input type="text" id="hcode" value="10929" maxlength="5" inputmode="numeric" placeholder="เช่น 10929" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <div class="lbl" id="sexLbl">เพศ</div>
+        <div class="seg" id="sexSeg" role="radiogroup" aria-labelledby="sexLbl">
+          <button type="button" class="on" data-sex="1" role="radio" aria-checked="true"><svg class="seg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>ชาย</button>
+          <button type="button" data-sex="2" role="radio" aria-checked="false"><svg class="seg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>หญิง</button>
+        </div>
+      </div>
+
+      <details class="advanced-fields" open>
+        <summary>ข้อมูลการรักษาเพิ่มเติม</summary>
+      <div class="row3">
+        <div class="field">
+          <label class="lbl" for="age">อายุ (ปี)</label>
+          <input type="number" id="age" value="65" min="0" max="120" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label class="lbl" for="ageDay">อายุ (วัน)</label>
+          <input type="number" id="ageDay" value="0" min="0" max="364" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label class="lbl" for="weight">น้ำหนัก (กก.)</label>
+          <input type="number" id="weight" value="60" min="0" max="300" step="0.1" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="row3">
+        <div class="field">
+          <label class="lbl" for="losDay">LOS วัน</label>
+          <input type="number" id="losDay" value="5" min="0" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label class="lbl" for="losHour">LOS ชม.</label>
+          <input type="number" id="losHour" value="0" min="0" max="23" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label class="lbl" for="baseRate">Base Rate (บาท)</label>
+          <input type="number" id="baseRate" value="3504" min="0" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="dcStatus">สถานะจำหน่าย (D/C Status)</label>
+        <select id="dcStatus"><option value="">กำลังโหลด...</option></select>
+      </div>
+      </details>
+
+      <div class="card-title sec"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="m3 6 1 1 2-2"/><path d="m3 12 1 1 2-2"/><path d="m3 18 1 1 2-2"/></svg> รหัสวินิจฉัยและหัตถการ <span class="line"></span></div>
+
+      <div class="field">
+        <label class="lbl" for="pdx">PDx — รหัสวินิจฉัยหลัก (ICD-10) <span class="required">จำเป็น</span></label>
+        <div class="ac-wrap">
+          <input type="text" id="pdx" placeholder="พิมพ์รหัส เช่น I639" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="pdxAc" aria-describedby="pdxError" aria-autocomplete="list" aria-invalid="false">
+          <div class="ac-list" id="pdxAc" role="listbox" aria-label="ผลการค้นหา ICD-10"></div>
+        </div>
+        <div class="field-error" id="pdxError">กรุณาระบุรหัสวินิจฉัยหลักก่อนคำนวณ</div>
+      </div>
+
+      <div class="field">
+        <div class="lbl">SDx — รหัสวินิจฉัยร่วม (Enter เพื่อเพิ่ม)</div>
+        <div class="chips" id="sdxChips" aria-label="รายการ SDx — พิมพ์รหัสแล้วกด Enter"></div>
+        <div class="qrow" id="sdxQuick"></div>
+        <div class="qrow" id="sdxRecent" style="display:none;"></div>
+        <div class="hint">วางหลายรหัสพร้อมกันได้ (คั่นด้วย , space หรือ ;) · Enter ว่างๆ = ไป Proc</div>
+      </div>
+
+      <div class="field">
+        <div class="lbl">Proc — รหัสหัตถการ ICD-9-CM (Enter เพื่อเพิ่ม)</div>
+        <div class="chips" id="procChips" aria-label="รายการ Proc — พิมพ์รหัสแล้วกด Enter"></div>
+        <div class="qrow" id="procQuick"></div>
+        <div class="hint">พิมพ์แล้วมีคำแนะนำอัตโนมัติ · Enter ว่างๆ = คำนวณทันที</div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="btnCalc" title="คำนวณ DRG จากข้อมูลที่กรอก (Ctrl+Enter)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> คำนวณ DRG</button>
+        <button type="button" class="btn btn-secondary" id="btnPermute" title="เปรียบเทียบทุกทางเลือก โดยสลับ SDx ขึ้นเป็น PDx (Ctrl+Shift+Enter)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg> เปรียบเทียบ PDx</button>
+        <button type="button" class="btn btn-ghost" id="btnReset" title="ล้างข้อมูลทั้งหมดกลับค่าเริ่มต้น"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> ล้าง</button>
+        <div class="action-note">คำนวณ = ผลลัพธ์ปัจจุบัน · เปรียบเทียบ PDx = ทดลองทุกทางเลือกเพื่อหา ADJRW ที่เหมาะสม</div>
+      </div>
+      <div class="shortcut-hint">
+        <span><span class="kbd">Enter</span> ไปช่องถัดไป</span>
+        <span><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> คำนวณ</span>
+        <span><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">Enter</span> เปรียบเทียบ</span>
+      </div>
+    </div>
+
+    <!-- ============ RESULT ============ -->
+    <div class="right-col">
+      <div class="card" id="resultCard">
+        <div class="card-title result-card-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg> ผลการคำนวณ <span class="line"></span></div>
+        <div class="case-strip" id="caseStatus" data-state="ready" role="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span><b>พร้อมคำนวณ</b> · กรอก PDx แล้วเลือกการทำงานที่ต้องการ</span></div>
+        <div id="resultBody" aria-live="polite">
+          <div class="empty">
+            <div class="ico" aria-hidden="true"><svg class="ic-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
+            <h2>ยังไม่ได้คำนวณ</h2>
+            <p>กรอกข้อมูลผู้ป่วยและรหัสวินิจฉัย แล้วกด "คำนวณ DRG"<br>
+            หรือกด "เปรียบเทียบ PDx" เพื่อดูทางเลือกและ ADJRW</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="histCard">
+        <div class="card-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> ประวัติการคำนวณ <span class="line"></span>
+          <button type="button" class="mini-btn" id="btnClearHist" title="ลบประวัติทั้งหมด">ล้าง</button>
+        </div>
+        <div id="histBody" aria-live="polite"><div class="hint" style="text-align:center;">ยังไม่มีประวัติ</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <b>KTL CMI DRG Seeker</b> · พัฒนาโดยงานยุทธศาสตร์ รพ.กันทรลักษ์ · เวอร์ชัน v3.0 (GitHub Pages)<br>
+    ใช้ Grouper ทางการ <b>CMI@MoPH · TGrp6305 v6.3.5</b> (สำนักพัฒนากลุ่มโรคร่วมไทย สรท.)<br>
+    หมายเหตุ: API จำกัดการเข้าถึงเฉพาะเครือข่ายในประเทศไทย
+  </footer>
+</div>
+
+<!-- แถบปุ่มล่าง (แสดงเฉพาะมือถือ) -->
+<div class="mobile-bar">
+  <button type="button" class="btn btn-primary" id="btnCalcM" title="คำนวณ DRG"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> คำนวณ</button>
+  <button type="button" class="btn btn-secondary" id="btnPermuteM" title="เปรียบเทียบทางเลือก PDx"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg> เปรียบเทียบ</button>
+  <button type="button" class="btn btn-ghost icon-btn" id="btnResetM" title="ล้างข้อมูล" aria-label="ล้างข้อมูล"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
+</div>
+
+<div id="loader" role="status" aria-live="polite"><div class="spin" aria-hidden="true"></div><div class="t" id="loaderTxt">กำลังคำนวณ DRG ผ่าน Grouper ทางการ...</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
