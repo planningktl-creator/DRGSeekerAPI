@@ -127,7 +127,9 @@ input:focus-visible, select:focus-visible { outline: none; }
 /* ---------- Layout ---------- */
 .wrap { max-width: 1240px; margin: 0 auto; padding: 18px 20px 60px; }
 .grid { display: grid; grid-template-columns: 460px minmax(0, 1fr); gap: 22px; align-items: start; }
-@media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+/* minmax(0,1fr) — `1fr` เปล่าๆ มี auto minimum ให้ min-content ของตาราง permute
+   ดัน track กว้าง 654px ทั้งที่จอ 375 → หน้าเลื่อนแนวนอนทั้งเพจ */
+@media (max-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 .right-col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 
 /* ---------- Header ---------- */
