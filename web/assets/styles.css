@@ -215,7 +215,7 @@ input:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(20, 184, 166, .16);
 }
 input.invalid { border-color: var(--err) !important; box-shadow: 0 0 0 3px rgba(248, 113, 113, .16) !important; }
-input::placeholder, .chip-input::placeholder { color: #6f9a97; }
+input::placeholder { color: #6f9a97; }
 select option { background: var(--ac-bg); color: var(--txt); }
 
 /* ---------- Sex segmented toggle ---------- */
@@ -384,9 +384,26 @@ select option { background: var(--ac-bg); color: var(--txt); }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes rot { to { transform: rotate(360deg); } }
 .empty { min-height: 290px; text-align: center; padding: 48px 20px; color: var(--muted); display: grid; place-items: center; align-content: center; }
-.empty .ico { font-size: 52px; margin-bottom: 14px; opacity: .85; }
+.empty .empty-ic { font-size: 52px; margin-bottom: 14px; opacity: .85; display: flex; justify-content: center; }
 .empty h2 { font-family: var(--font-display); color: var(--txt); font-size: 17px; margin-bottom: 6px; }
 .empty p { font-size: 13px; line-height: 1.8; color: var(--hint); max-width: 430px; margin-inline: auto; }
+.empty-steps {
+  display: flex; flex-direction: column; gap: 8px; margin-top: 20px; width: 100%; max-width: 320px;
+  text-align: left;
+}
+.empty-steps .step {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 10px;
+  background: var(--card-2); border: 1px solid var(--card-border);
+  font-size: 12.5px; color: var(--muted);
+}
+.empty-steps .step .n {
+  flex: 0 0 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--btn-1a), var(--btn-1b));
+  color: #fff; font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
 
 .drg-hero {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
@@ -464,6 +481,12 @@ body[data-theme="dark"] .alert.ok { background: rgba(52, 211, 153, .08); border-
 .perm-status-line .hint { margin: 0; }
 
 /* ---------- History ---------- */
+.hist-empty {
+  text-align: center; padding: 28px 16px; color: var(--muted); font-size: 13px; line-height: 1.6;
+}
+.hist-empty .hist-empty-ic { color: var(--hint); opacity: .7; margin-bottom: 10px; display: flex; justify-content: center; }
+.hist-empty .hist-empty-ic .ic { width: 28px; height: 28px; }
+.hist-empty span { color: var(--hint); font-size: 12px; }
 .hist-item {
   display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 10px 12px; border-radius: var(--r-sm); cursor: pointer;

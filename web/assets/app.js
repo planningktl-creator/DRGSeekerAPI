@@ -113,10 +113,16 @@ function scrollToEl(el) {
   window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
 }
 function emptyState() {
-  return `<div class="empty"><div class="ico" aria-hidden="true">${IC.xlSearch}</div>
+  return `<div class="empty">
+    <div class="empty-ic" aria-hidden="true">${IC.xlSearch}</div>
     <h2>ยังไม่ได้คำนวณ</h2>
-    <p>กรอกข้อมูลผู้ป่วยและรหัสวินิจฉัย แล้วกด "คำนวณ DRG"<br>
-    หรือกด "เปรียบเทียบ PDx" เพื่อดูทางเลือกและ ADJRW</p></div>`;
+    <p>กรอกข้อมูลผู้ป่วยและรหัสวินิจฉัย แล้วกด <b>คำนวณ DRG</b></p>
+    <div class="empty-steps">
+      <div class="step"><span class="n">1</span>กรอก PDx — รหัสวินิจฉัยหลัก</div>
+      <div class="step"><span class="n">2</span>เพิ่ม SDx / หัตถการ (ถ้ามี)</div>
+      <div class="step"><span class="n">3</span>กดคำนวณเพื่อดูผลลัพธ์</div>
+    </div>
+  </div>`;
 }
 function setBusy(b, which) {
   BUSY = b;
@@ -272,7 +278,7 @@ function chipRow(container, arr) {
   const label = kind === 'proc' ? 'เพิ่มรหัสหัตถการ' : 'เพิ่มรหัสวินิจฉัย';
   container.innerHTML = arr.map(c =>
     `<span class="chip">${esc(c)}<button type="button" class="chip-x" data-c="${esc(c)}" aria-label="ลบ ${esc(c)}" title="ลบ ${esc(c)}">${IC.x}</button></span>`
-  ).join('') + `<input type="text" class="chip-input" placeholder="พิมพ์รหัส..." aria-label="${label}" autocomplete="off">`;
+  ).join('') + `<input type="text" class="chip-input" aria-label="${label}" autocomplete="off">`;
   const inp = container.querySelector('.chip-input');
   inp.addEventListener('input', () => { if (kind === 'proc') procAcSearch(inp, container); });
   inp.addEventListener('keydown', e => {
@@ -840,7 +846,7 @@ function renderError(e) {
       ${esc(friendlyError(e))}<br><br>
       หมายเหตุ: API ของ CMI@MoPH จำกัดการเข้าถึงเฉพาะเครือข่ายในประเทศไทย<br>
       — ถ้าเปิดจากนอกเครือข่ายไทย กรุณาใช้ภายใน รพ. หรือ VPN ไทย</span></div>
-    <div class="empty" style="padding:30px 20px;"><div class="ico" aria-hidden="true">${IC.xlSearch}</div><h2>ลองอีกครั้ง</h2><p>ตรวจสอบข้อมูลแล้วกดคำนวณใหม่</p></div>`;
+    <div class="empty" style="padding:30px 20px;"><div class="empty-ic" aria-hidden="true">${IC.xlSearch}</div><h2>ลองอีกครั้ง</h2><p>ตรวจสอบข้อมูลแล้วกดคำนวณใหม่</p></div>`;
 }
 
 /* ================= HISTORY ================= */
@@ -862,7 +868,7 @@ function renderHistory() {
        <span class="rw">RW ${(+x.rw).toFixed(4)} · ADJRW ${(+x.adjrw).toFixed(4)}</span>
        <span class="time">${new Date(x.ts).toLocaleTimeString('th-TH')}</span>
      </div>`
-  ).join('') : '<div class="hint" style="text-align:center;">ยังไม่มีประวัติ</div>';
+  ).join('') : '<div class="hist-empty"><div class="hist-empty-ic" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>ยังไม่มีประวัติ<br><span>คำนวณเคสแรกเพื่อบันทึกไว้ที่นี่</span></div>';
   $('histBody').querySelectorAll('.hist-item').forEach(el => {
     const activate = () => {
       const idx = +el.dataset.idx;

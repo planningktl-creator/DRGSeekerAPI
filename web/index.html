@@ -40,7 +40,8 @@
 
       <div class="field">
         <label class="lbl" for="hcode">รหัสสถานพยาบาล (HCode) <span class="required">จำเป็น</span></label>
-        <input type="text" id="hcode" value="10929" maxlength="5" inputmode="numeric" placeholder="เช่น 10929" autocomplete="off">
+        <input type="text" id="hcode" value="10929" maxlength="5" inputmode="numeric" autocomplete="off">
+        <div class="hint">รหัส 5 หลักของสถานพยาบาล · ตัวอย่าง 10929 (รพ.กันทรลักษ์)</div>
       </div>
 
       <div class="field">
@@ -94,10 +95,11 @@
       <div class="field">
         <label class="lbl" for="pdx">PDx — รหัสวินิจฉัยหลัก (ICD-10) <span class="required">จำเป็น</span></label>
         <div class="ac-wrap">
-          <input type="text" id="pdx" placeholder="พิมพ์รหัส เช่น I639" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="pdxAc" aria-describedby="pdxError" aria-autocomplete="list" aria-invalid="false">
+          <input type="text" id="pdx" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="pdxAc" aria-describedby="pdxError" aria-autocomplete="list" aria-invalid="false">
           <div class="ac-list" id="pdxAc" role="listbox" aria-label="ผลการค้นหา ICD-10"></div>
         </div>
         <div class="field-error" id="pdxError">กรุณาระบุรหัสวินิจฉัยหลักก่อนคำนวณ</div>
+        <div class="hint">พิมพ์รหัส ICD-10 เช่น I639 แล้วเลือกรายการจากคำแนะนำอัตโนมัติ</div>
       </div>
 
       <div class="field">
@@ -135,10 +137,14 @@
         <div class="case-strip" id="caseStatus" data-state="ready" role="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span><b>พร้อมคำนวณ</b> · กรอก PDx แล้วเลือกการทำงานที่ต้องการ</span></div>
         <div id="resultBody" aria-live="polite">
           <div class="empty">
-            <div class="ico" aria-hidden="true"><svg class="ic-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
+            <div class="empty-ic" aria-hidden="true"><svg class="ic-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
             <h2>ยังไม่ได้คำนวณ</h2>
-            <p>กรอกข้อมูลผู้ป่วยและรหัสวินิจฉัย แล้วกด "คำนวณ DRG"<br>
-            หรือกด "เปรียบเทียบ PDx" เพื่อดูทางเลือกและ ADJRW</p>
+            <p>กรอกข้อมูลผู้ป่วยและรหัสวินิจฉัย แล้วกด <b>คำนวณ DRG</b></p>
+            <div class="empty-steps">
+              <div class="step"><span class="n">1</span>กรอก PDx — รหัสวินิจฉัยหลัก</div>
+              <div class="step"><span class="n">2</span>เพิ่ม SDx / หัตถการ (ถ้ามี)</div>
+              <div class="step"><span class="n">3</span>กดคำนวณเพื่อดูผลลัพธ์</div>
+            </div>
           </div>
         </div>
       </div>
@@ -147,7 +153,7 @@
         <div class="card-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> ประวัติการคำนวณ <span class="line"></span>
           <button type="button" class="mini-btn" id="btnClearHist" title="ลบประวัติทั้งหมด">ล้าง</button>
         </div>
-        <div id="histBody" aria-live="polite"><div class="hint" style="text-align:center;">ยังไม่มีประวัติ</div></div>
+        <div id="histBody" aria-live="polite"><div class="hist-empty"><div class="hist-empty-ic" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>ยังไม่มีประวัติ<br><span>คำนวณเคสแรกเพื่อบันทึกไว้ที่นี่</span></div></div>
       </div>
     </div>
 
