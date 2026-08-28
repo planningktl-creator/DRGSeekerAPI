@@ -20,5 +20,5 @@ Thumbs.db
 ~/.clasprc.json
 appsscript.json.bak
 
-# Logs
+# Docker (optional)
 *.log
