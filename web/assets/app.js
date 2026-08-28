@@ -8,7 +8,9 @@
 
 /* ================= CONFIG ================= */
 const API = 'https://had-api.moph.go.th/cmi';
-/* CORS proxy สำรอง (สาธารณะ, ใช้เฉพาะเมื่อ fetch ตรงล้มเหลว)
+/* CORS proxy สำรอง (สาธารณะ) — ใช้เฉพาะ GET /libs/* เท่านั้น
+   ห้ามส่ง /drg/calculate ผ่าน proxy เด็ดขาด: เป็นข้อมูลเคสผู้ป่วย และ
+   proxy สาธารณะก็ส่ง POST body ต่อไม่ได้อยู่แล้ว
    หมายเหตุ: API ของ CMI@MoPH เปิด CORS * อยู่แล้ว + geo-block เฉพาะ IP ไทย
    → proxy มีประโยชน์เฉพาะเมื่อ fetch ตรงล่มชั่วคราวจาก network/geo edge
    (ตัวหลักทำงานได้เต็มที่ในไทยโดยไม่ต้องพึ่ง proxy) */
@@ -88,7 +90,9 @@ async function apiRequest(path, { method = 'GET', body = null } = {}) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return await r.json();
   } catch (directErr) {
-    /* 2) fallback ผ่าน CORS proxy (best-effort — ตัวหลัก fetch ตรงเวิร์กอยู่แล้ว) */
+    /* 2) fallback ผ่าน CORS proxy — GET /libs/* เท่านั้น
+       ห้ามส่งข้อมูลเคส (POST /drg/calculate) ให้บุคคลที่สาม */
+    if (method !== 'GET' || !/^libs\//.test(path)) throw directErr;
     let lastErr = directErr;
     for (const p of PROXY_FALLBACKS) {
       try {
