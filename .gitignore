@@ -1,0 +1,24 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# clasp / GAS
+.clasprc.json
+~/.clasprc.json
+appsscript.json.bak
+
+# Logs
+*.log

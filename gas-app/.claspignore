@@ -1,0 +1,11 @@
+# ป้องกันไฟล์ที่ไม่ใช่ GAS ถูก push ขึ้น Google Apps Script
+# (ไฟล์ .js/.gs/.html/.json ในโฟลเดอร์โปรเจกต์ clasp จะ push ขึ้นทั้งหมด)
+
+# Push เฉพาะไฟล์ GAS ที่จำเป็น
+!appsscript.json
+!Code.gs
+!Code.js
+!Index.html
+
+# ยกเว้นทุกอย่างอื่น
+**

@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="th">
+<!-- impeccable-disable ai-color-palette -- สี teal/cyan + amber คือแบรนด์ของ รพ.กันทรลักษ์ (ใช้ใน DRG Seeker, รายงาน CMI รายเดือน) ตั้งใจคงไว้ -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="เครื่องมือคำนวณ DRG ออนไลน์ รพ.กันทรลักษ์ — ใช้ Grouper ทางการ CMI@MoPH (TGrp6305 v6.3.5)">
+  <title>KTL CMI DRG Seeker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2314b8a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-4l-3 9L9 3l-3 9H2'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       KTL CMI DRG Seeker — Design System v2.0 (PRO MAX)
+       พื้นเขียวเข้ม + teal/cyan accent + amber secondary
+       การ์ดทึบ rgba(9,42,42,.92) ขอบ 1px — ไม่มี glass blur/เงาสี
+       Mitr เฉพาะ hero DRG + หัวข้อการ์ด ที่เหลือ Noto Sans Thai
+       ============================================================ */
+    :root {
+      --bg1: #041f1f;
+      --bg2: #0a3535;
+      --card: rgba(9, 42, 42, .92);
+      --card-border: rgba(255, 255, 255, .12);
+      --teal: #14b8a6;
+      --cyan: #22d3ee;
+      --teal-deep: #0891b2;
+      --amber: #f59e0b;
+      --amber2: #d97706;
+      --txt: #e8f6f5;
+      --muted: #9dbdbd;
+      --hint: #7fa8a5;            /* contrast ≥ 4.5:1 บน bg เขียวเข้ม */
+      --ok: #34d399;
+      --err: #f87171;
+      --warn: #fbbf24;
+      --focus: #22d3ee;
+      --btn-1a: #0b6b62;          /* primary gradient */
+      --btn-1b: #0e4d47;
+      --btn-2a: #b45309;          /* secondary amber gradient */
+      --btn-2b: #92400e;
+      --font-display: 'Mitr', sans-serif;
+      --font-body: 'Noto Sans Thai', sans-serif;
+      --r: 16px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; scrollbar-color: rgba(147,180,180,.35) transparent; scrollbar-width: thin; }
+    body {
+      font-family: var(--font-body);
+      font-size: 16px; line-height: 1.6; letter-spacing: .01em;
+      color: var(--txt);
+      background-color: var(--bg1);
+      background-image:
+        radial-gradient(900px 500px at 85% -10%, rgba(20,184,166,.16), transparent 60%),
+        radial-gradient(700px 420px at -10% 30%, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(800px 500px at 50% 110%, rgba(217,119,6,.10), transparent 60%),
+        linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+      -webkit-tap-highlight-color: transparent;
+    }
+    ::selection { background: rgba(20,184,166,.35); }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(147,180,180,.35); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(147,180,180,.55); background-clip: padding-box; }
+    input, select, textarea { caret-color: var(--teal); }
+    input[type=number] { font-variant-numeric: tabular-nums; }
+
+    /* ===== Icons (SVG ชุดเดียว stroke 2 — Lucide style) ===== */
+    .ic { width: 18px; height: 18px; flex: 0 0 auto; }
+    .ic-sm { width: 15px; height: 15px; flex: 0 0 auto; }
+    .ic-lg { width: 24px; height: 24px; flex: 0 0 auto; }
+    .ic-xl { width: 46px; height: 46px; flex: 0 0 auto; opacity: .85; }
+    .ic-x { width: 11px; height: 11px; display: block; }
+
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 18px 20px 60px; }
+
+    /* ===== Focus (keyboard) — ring 2px ===== */
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+    input:focus-visible, select:focus-visible { outline: none; }
+
+    /* ===== Header ===== */
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 14px 20px; border-radius: 18px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .logo {
+      width: 46px; height: 46px; border-radius: 14px; flex: 0 0 auto;
+      background: linear-gradient(135deg, var(--teal-deep), var(--teal));
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; box-shadow: 0 8px 22px rgba(0,0,0,.32);
+    }
+    .logo .ic { width: 26px; height: 26px; }
+    .brand h1 { font-family: var(--font-display); font-size: 21px; font-weight: 600; letter-spacing: .3px; line-height: 1.2; }
+    .brand .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11.5px; font-weight: 600; color: var(--amber);
+      background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35);
+      padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+    }
+    .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
+
+    /* ===== Layout: desktop 2 คอลัมน์ (ฟอร์ม 460px + ผลลัพธ์) ===== */
+    .grid { display: grid; grid-template-columns: 460px minmax(0,1fr); gap: 20px; align-items: start; }
+    @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+    .right-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+    /* ===== Cards ===== */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      padding: 20px;
+    }
+    @media (min-width: 961px) { .form-card { position: sticky; top: 16px; } }
+    .card-title {
+      font-family: var(--font-display); font-size: 14px; font-weight: 600;
+      color: var(--cyan); letter-spacing: .5px;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+    }
+    .card-title .line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(34,211,238,.4), transparent); }
+    .card-title.sec { margin-top: 24px; }
+
+    /* ===== Form ===== */
+    .field { margin-bottom: 14px; }
+    .lbl { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; letter-spacing: .3px; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    input[type=text], input[type=number], select {
+      width: 100%; padding: 11px 13px; border-radius: 12px;
+      background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.13);
+      color: var(--txt); font-family: inherit; font-size: 14px; outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      font-variant-numeric: tabular-nums;
+    }
+    input:focus, select:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(20,184,166,.18);
+    }
+    input.invalid {
+      border-color: var(--err) !important;
+      box-shadow: 0 0 0 3px rgba(248,113,113,.18) !important;
+    }
+    input::placeholder { color: #6f9a97; }
+    select option { background: #0a3535; color: var(--txt); }
+
+    /* เพศ toggle (segmented) */
+    .seg { display: flex; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.13); border-radius: 12px; padding: 4px; gap: 4px; }
+    .seg button {
+      flex: 1; padding: 9px 0; min-height: 44px; border: 0; border-radius: 9px; cursor: pointer;
+      background: transparent; color: var(--muted); font-family: inherit; font-size: 14px; font-weight: 600;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      transition: background .2s, color .2s, box-shadow .2s;
+    }
+    .seg button .seg-ic { width: 14px; height: 14px; opacity: 0; transition: opacity .2s; }
+    .seg button.on { background: linear-gradient(135deg, var(--btn-1a), var(--btn-1b)); color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.30); }
+    .seg button.on .seg-ic { opacity: 1; }
+
+    /* ===== Chips (SDx / Proc) ===== */
+    .chips {
+      display: flex; flex-wrap: wrap; gap: 7px; padding: 9px;
+      background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.13);
+      border-radius: 12px; min-height: 46px; cursor: text;
+      position: relative;
+    }
+    .chips:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(20,184,166,.18); }
+    .chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: rgba(20,184,166,.16); border: 1px solid rgba(20,184,166,.4);
+      color: var(--teal); font-size: 13px; font-weight: 600;
+      padding: 3px 4px 3px 10px; border-radius: 999px;
+      font-variant-numeric: tabular-nums;
+      animation: fadeUp .18s ease both;
+    }
+    .chip-x {
+      width: 26px; height: 26px; border: 0; background: transparent; color: var(--teal);
+      cursor: pointer; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      opacity: .7; transition: opacity .15s, background .15s, color .15s;
+      touch-action: manipulation;
+    }
+    .chip-x:hover { opacity: 1; color: var(--err); background: rgba(248,113,113,.12); }
+    .chip-input { flex: 1; min-width: 110px; border: 0; background: transparent; color: var(--txt); font-family: inherit; font-size: 14px; outline: none; padding: 4px 2px; }
+    .chip-input::placeholder { color: #6f9a97; }
+    .hint { font-size: 12px; color: var(--hint); margin-top: 5px; line-height: 1.5; }
+    .eyebrow {
+      color: var(--teal); font-size: 11px; font-weight: 700; letter-spacing: .8px;
+      text-transform: uppercase; margin-bottom: 4px;
+    }
+    .section-note { color: var(--hint); font-size: 12px; margin: -8px 0 16px; line-height: 1.5; }
+    .required { color: var(--amber); margin-left: 3px; }
+    .field-error { display: none; color: #fca5a5; font-size: 12px; margin-top: 5px; line-height: 1.45; }
+    .field.has-error .field-error { display: block; }
+    .advanced-fields {
+      border: 1px solid rgba(255,255,255,.08); border-radius: 13px; padding: 0 12px;
+      background: rgba(0,0,0,.12); margin: 6px 0 18px;
+    }
+    .advanced-fields summary {
+      cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 700;
+      padding: 12px 2px; list-style-position: inside;
+    }
+    .advanced-fields summary::marker { color: var(--teal); }
+    .advanced-fields[open] summary { color: var(--txt); border-bottom: 1px solid rgba(255,255,255,.08); margin-bottom: 14px; }
+    .case-strip {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: -4px 0 16px;
+      border-radius: 12px; background: rgba(20,184,166,.08); border: 1px solid rgba(20,184,166,.24);
+      color: var(--muted); font-size: 12px; line-height: 1.4;
+    }
+    .case-strip .status-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; background: var(--teal); box-shadow: 0 0 0 4px rgba(20,184,166,.12); }
+    .case-strip[data-state="success"] { border-color: rgba(52,211,153,.35); background: rgba(52,211,153,.07); }
+    .case-strip[data-state="success"] .status-dot { background: var(--ok); box-shadow: 0 0 0 4px rgba(52,211,153,.12); }
+    .case-strip[data-state="working"] { border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.07); }
+    .case-strip[data-state="working"] .status-dot { background: var(--amber); box-shadow: 0 0 0 4px rgba(245,158,11,.12); }
+    .case-strip[data-state="error"] { border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.07); }
+    .case-strip[data-state="error"] .status-dot { background: var(--err); box-shadow: 0 0 0 4px rgba(248,113,113,.12); }
+    .case-strip b { color: var(--txt); }
+    .action-note { flex-basis: 100%; color: var(--hint); font-size: 11px; margin-top: -3px; line-height: 1.45; }
+    .result-card-title { margin-bottom: 10px; }
+
+    /* quick chips (พบบ่อย / ล่าสุด) */
+    .qrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+    .qrow .qlbl { font-size: 11px; color: var(--hint); font-weight: 600; letter-spacing: .3px; }
+    .qchip {
+      font-size: 11px; font-weight: 600; font-family: var(--font-body);
+      color: var(--cyan); background: rgba(34,211,238,.07);
+      border: 1px dashed rgba(34,211,238,.38); border-radius: 999px;
+      padding: 3px 10px; min-height: 32px; cursor: pointer; letter-spacing: .3px;
+      font-variant-numeric: tabular-nums;
+      transition: background .15s, border-color .15s, transform .1s, opacity .2s;
+      touch-action: manipulation;
+    }
+    .qchip:hover { background: rgba(34,211,238,.18); border-style: solid; }
+    .qchip:active { transform: scale(.94); }
+    .qchip.added { opacity: .35; pointer-events: none; border-style: solid; }
+
+    .kbd {
+      display: inline-block; font-size: 11px; color: var(--hint); line-height: 1.4;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16);
+      border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; font-family: inherit;
+    }
+    .shortcut-hint {
+      display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center;
+      margin-top: 12px; font-size: 11px; color: var(--hint);
+    }
+    .shortcut-hint span { display: inline-flex; align-items: center; gap: 5px; }
+
+    /* ===== Autocomplete ===== */
+    .ac-wrap { position: relative; }
+    .ac-list {
+      position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; right: 0;
+      max-height: 220px; overflow: auto; border-radius: 12px;
+      background: #0b3535; border: 1px solid rgba(20,184,166,.35);
+      display: none;
+    }
+    .ac-list.open { display: block; }
+    .ac-item { padding: 10px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,.06); min-height: 40px; }
+    .ac-item:last-child { border-bottom: 0; }
+    .ac-item:hover, .ac-item.sel { background: rgba(20,184,166,.18); }
+    .ac-item .c { color: var(--cyan); font-weight: 700; margin-right: 8px; font-variant-numeric: tabular-nums; }
+    .ac-item .d { color: var(--muted); font-size: 12px; }
+    .ac-empty { padding: 10px 12px; font-size: 12.5px; color: var(--hint); }
+
+    /* ===== Buttons ===== */
+    .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+    .btn {
+      flex: 1 1 auto; min-height: 48px; padding: 13px 14px; border: 0; border-radius: 13px; cursor: pointer;
+      font-family: var(--font-body); font-size: 15px; font-weight: 700; letter-spacing: .3px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      transition: transform .15s, box-shadow .2s, opacity .2s, filter .2s;
+      touch-action: manipulation;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary {
+      background: var(--btn-1a);
+      color: #fff; box-shadow: 0 10px 26px rgba(0,0,0,.35);
+    }
+    .btn-primary:hover:not(:disabled) { box-shadow: 0 12px 32px rgba(0,0,0,.45); filter: brightness(1.08); }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; filter: none; }
+    .btn-secondary {
+      background: rgba(180,83,9,.78);
+      color: #fff; box-shadow: 0 10px 26px rgba(0,0,0,.35);
+    }
+    .btn-secondary:hover:not(:disabled) { box-shadow: 0 12px 32px rgba(0,0,0,.45); filter: brightness(1.08); }
+    .btn-secondary:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; filter: none; }
+    .btn-ghost { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); color: var(--muted); }
+    .btn-ghost:hover:not(:disabled) { color: var(--txt); background: rgba(255,255,255,.11); }
+    .btn-ghost:disabled { opacity: .45; cursor: not-allowed; }
+    .btn.loading { cursor: wait; }
+    .btn.loading::after {
+      content: ''; width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+      animation: rot .7s linear infinite; flex: 0 0 auto;
+    }
+    .btn.loading.btn-ghost::after { border-color: rgba(255,255,255,.2); border-top-color: var(--muted); }
+    .icon-btn { flex: 0 0 52px; padding: 0; }
+    @media (max-width: 560px) {
+      .actions .btn { flex: 1 1 calc(50% - 5px); }
+      #btnReset, #btnResetM { flex: 1 1 100%; }
+    }
+
+    /* mini button (ล้างประวัติ / คัดลอก / หยุด) */
+    .mini-btn {
+      flex: 0 0 auto; font-size: 11px; font-weight: 600; color: var(--muted);
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14);
+      border-radius: 999px; padding: 5px 12px; min-height: 28px; cursor: pointer; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: color .2s, border-color .2s, background .2s;
+      touch-action: manipulation;
+    }
+    .mini-btn:hover { color: var(--err); border-color: rgba(248,113,113,.45); background: rgba(248,113,113,.08); }
+
+    /* ===== Result ===== */
+    #resultBody > * { animation: fadeUp .25s ease both; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @keyframes rot { to { transform: rotate(360deg); } }
+    .empty { text-align: center; padding: 56px 20px; color: var(--muted); }
+    .empty .ico { font-size: 52px; margin-bottom: 14px; opacity: .85; }
+    .empty h2 { font-family: var(--font-display); color: var(--txt); font-size: 17px; margin-bottom: 6px; }
+    .empty p { font-size: 13px; line-height: 1.8; color: var(--hint); }
+
+    .drg-hero {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      padding: 22px; border-radius: 18px; margin-bottom: 16px;
+      background: linear-gradient(135deg, rgba(8,145,178,.16), rgba(20,184,166,.05));
+      border: 1px solid rgba(20,184,166,.35);
+      position: relative; overflow: hidden;
+    }
+    .drg-hero::before {
+      content: ''; position: absolute; top: -60px; right: -40px; width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(34,211,238,.18), transparent 65%);
+    }
+    .drg-hero > * { position: relative; }
+    .drg-code {
+      font-family: var(--font-display); font-size: 46px; font-weight: 700; letter-spacing: 1px;
+      color: var(--cyan); line-height: 1; font-variant-numeric: tabular-nums;
+    }
+    .drg-name { font-size: 13px; color: var(--muted); margin-top: 8px; max-width: 420px; line-height: 1.5; }
+    .mdc-badge {
+      font-size: 12px; font-weight: 700; color: var(--amber); background: rgba(245,158,11,.13);
+      border: 1px solid rgba(245,158,11,.4); padding: 6px 12px; border-radius: 999px;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+    @media (max-width: 760px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 440px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+    .stat {
+      background: rgba(0,0,0,.26); border: 1px solid rgba(255,255,255,.09);
+      border-radius: 14px; padding: 13px 10px; text-align: center;
+    }
+    .stat .k { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .4px; }
+    .stat .v { font-size: 19px; font-weight: 700; margin-top: 5px; font-variant-numeric: tabular-nums; line-height: 1.3; }
+    .stat .v.amber { color: var(--amber); }
+
+    .alert {
+      margin-top: 14px; padding: 12px 14px; border-radius: 12px; font-size: 13px;
+      display: flex; gap: 10px; align-items: flex-start; line-height: 1.6;
+    }
+    .alert .ic { margin-top: 2px; }
+    .alert.err { background: rgba(248,113,113,.10); border: 1px solid rgba(248,113,113,.4); color: #fca5a5; }
+    .alert.warn { background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.4); color: #fcd34d; }
+    .alert.ok { background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.4); color: #6ee7b7; }
+
+    .meta { margin-top: 14px; font-size: 12px; color: var(--hint); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+
+    /* ===== Permutation ===== */
+    .perm-wrap { overflow-x: auto; margin-top: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08); -webkit-overflow-scrolling: touch; }
+    .prog { height: 8px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 8px; }
+    .prog > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--btn-1a), var(--teal)); transition: width .3s; }
+    .result-card-title + .case-strip { margin-top: 0; }
+    .perm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+    .perm-table th {
+      text-align: left; padding: 9px 10px; color: var(--muted); font-size: 11px; letter-spacing: .4px;
+      border-bottom: 1px solid rgba(255,255,255,.15); white-space: nowrap;
+      position: sticky; top: 0; background: #0d3d3d; z-index: 1;
+    }
+    .perm-table td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.06); white-space: nowrap; }
+    .perm-table tr:last-child td { border-bottom: 0; }
+    .perm-table tr:hover td { background: rgba(255,255,255,.03); }
+    .perm-table tr.best td { background: rgba(20,184,166,.13); }
+    .perm-table tr.current td { background: rgba(245,158,11,.10); }
+    .perm-table tr.best.current td { background: rgba(20,184,166,.20); }
+    .perm-table .drg { font-weight: 700; color: var(--cyan); font-size: 13px; }
+    .perm-table .n { color: var(--hint); }
+    .perm-table .gain-up { color: var(--ok); font-weight: 700; }
+    .perm-table .gain-dn { color: var(--err); font-weight: 700; }
+    .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; letter-spacing: .2px; margin-left: 4px; vertical-align: middle; }
+    .tag.best { background: rgba(52,211,153,.15); color: var(--ok); border: 1px solid rgba(52,211,153,.4); }
+    .tag.cur { background: rgba(245,158,11,.13); color: var(--amber); border: 1px solid rgba(245,158,11,.4); }
+    .rank-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .rank-item { font-size: 12px; color: var(--hint); background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.09); padding: 6px 11px; border-radius: 10px; }
+    .rank-item b { color: var(--txt); font-variant-numeric: tabular-nums; }
+    .rank-item.rank-top { border-color: rgba(52,211,153,.45); background: rgba(52,211,153,.08); }
+    .rank-item.rank-top b { color: var(--ok); }
+    .perm-status-line { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .perm-status-line .hint { margin: 0; }
+
+    /* ===== History ===== */
+    .hist-item {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 10px 12px; border-radius: 12px; cursor: pointer;
+      background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.07);
+      margin-bottom: 8px; transition: background .2s;
+      font-size: 13px;
+      touch-action: manipulation;
+    }
+    .hist-item:hover, .hist-item:focus-visible { background: rgba(20,184,166,.12); }
+    .hist-item .drg { font-weight: 600; color: var(--cyan); font-variant-numeric: tabular-nums; }
+    .hist-item .rw { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .hist-item .time { color: var(--hint); font-size: 12px; }
+
+    /* ===== Loader (ทึบ ไม่ blur) ===== */
+    #loader {
+      position: fixed; inset: 0; z-index: 100; display: none;
+      background: rgba(4,31,31,.96);
+      align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+    }
+    #loader.show { display: flex; }
+    .spin {
+      width: 52px; height: 52px; border-radius: 50%;
+      border: 4px solid rgba(20,184,166,.2); border-top-color: var(--teal);
+      animation: rot .8s linear infinite;
+    }
+    #loader .t { font-size: 15px; color: var(--txt); }
+
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #0d3d3d; border: 1px solid rgba(248,113,113,.5); color: #fca5a5;
+      padding: 12px 20px; border-radius: 12px; font-size: 13px; z-index: 130;
+      opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; max-width: 92vw; text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.ok { border-color: rgba(52,211,153,.5); color: #6ee7b7; }
+    .toast.warn { border-color: rgba(251,191,36,.5); color: #fcd34d; }
+
+    footer { margin-top: 26px; text-align: center; font-size: 12px; color: var(--hint); line-height: 1.8; }
+    footer b { color: var(--muted); font-weight: 600; }
+
+    /* ===== Mobile: แถบปุ่มล่าง sticky + safe-area ===== */
+    .mobile-bar { display: none; }
+    @media (max-width: 640px) {
+      .mobile-bar {
+        display: flex; gap: 10px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+        background: rgba(6,35,35,.98);
+        border-top: 1px solid rgba(255,255,255,.1);
+        box-shadow: 0 -10px 30px rgba(0,0,0,.35);
+      }
+      .mobile-bar .btn { flex: 1; min-height: 48px; font-size: 14px; padding: 11px 8px; }
+      .wrap { padding-left: 14px; padding-right: 14px; padding-bottom: 120px; }
+      .toast { bottom: 92px; }                       /* กันชนกับแถบปุ่มล่าง */
+      .actions { display: none; }                    /* ใช้แถบล่างแทน */
+      .shortcut-hint { display: none; }              /* คีย์บอร์ดลัดไม่เกี่ยวกับมือถือ */
+      .qrow { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+      .qchip { padding: 6px 12px; min-height: 36px; font-size: 12px; flex: 0 0 auto; }
+      .chip-x { width: 34px; height: 34px; }         /* touch target ≥ 32px */
+      .mini-btn { min-height: 34px; padding: 6px 14px; }
+      .seg button { min-height: 48px; }
+      input[type=text], input[type=number], select, .chip-input { font-size: 16px; }  /* กัน iOS auto-zoom */
+      .ac-item { min-height: 44px; }
+      /* ซ่อนคอลัมน์รองในตารางเปรียบเทียบ (เหลือ PDx/SDx/DRG/ADJRW/Δ) */
+      .perm-table th:nth-child(1), .perm-table td:nth-child(1),
+      .perm-table th:nth-child(5), .perm-table td:nth-child(5),
+      .perm-table th:nth-child(6), .perm-table td:nth-child(6),
+      .perm-table th:nth-child(9), .perm-table td:nth-child(9),
+      .perm-table th:nth-child(10), .perm-table td:nth-child(10),
+      .perm-table th:nth-child(11), .perm-table td:nth-child(11) { display: none; }
+      /* ตาราง streaming มี 10 คอลัมน์ (ไม่มี Δ) → ซ่อน WTLOS ให้เหลือ PDx/SDx/DRG/ADJRW */
+      .perm-table.stream th:nth-child(8), .perm-table.stream td:nth-child(8) { display: none; }
+      .perm-table th, .perm-table td { font-size: 11px; padding: 7px 6px; }
+      .brand h1 { font-size: 18px; }
+      .drg-code { font-size: 38px; }
+    }
+
+    /* ===== Theme: Clinical Light =====
+       พื้นขาวอมฟ้าเพื่ออ่านตารางและผลลัพธ์บนจอสำนักงานได้นานขึ้น
+       ใช้ teal เป็น action และ amber เป็น signal สำคัญเท่านั้น */
+    :root {
+      color-scheme: light;
+      --bg1: #eef5f6; --bg2: #dcebed; --card: #ffffff;
+      --card-border: rgba(16, 63, 72, .14);
+      --teal: #087f78; --cyan: #087d9b; --teal-deep: #086b78;
+      --amber: #a75b00; --amber2: #874800;
+      --txt: #17343b; --muted: #49656c; --hint: #607c82;
+      --ok: #087a54; --err: #b42318; --warn: #8a5a00; --focus: #087d9b;
+      --btn-1a: #087f78; --btn-1b: #06625d; --btn-2a: #b76500; --btn-2b: #8e4e00;
+    }
+    body {
+      background-color: var(--bg1);
+      background-image: radial-gradient(900px 500px at 85% -10%, rgba(20,184,166,.10), transparent 60%),
+        radial-gradient(700px 420px at -10% 30%, rgba(34,211,238,.08), transparent 55%),
+        linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+    }
+    header, .card { box-shadow: 0 8px 24px rgba(27, 66, 74, .06); }
+    .logo { box-shadow: 0 8px 18px rgba(8, 127, 120, .18); }
+    .card-title .line { background: linear-gradient(90deg, rgba(8,125,155,.35), transparent); }
+    input[type=text], input[type=number], select {
+      background: rgba(231, 242, 243, .72); border-color: rgba(16,63,72,.18); color: var(--txt);
+    }
+    input::placeholder, .chip-input::placeholder { color: #779197; }
+    select option { background: #fff; color: var(--txt); }
+    .seg, .chips, .advanced-fields { background: rgba(231,242,243,.72); border-color: rgba(16,63,72,.16); }
+    .seg button { color: var(--muted); }
+    .seg button.on { color: #fff; box-shadow: 0 4px 12px rgba(8,127,120,.18); }
+    .ac-list { background: #fff; border-color: rgba(8,127,120,.35); box-shadow: 0 10px 24px rgba(27,66,74,.12); }
+    .ac-item { border-bottom-color: rgba(16,63,72,.08); }
+    .ac-item:hover, .ac-item.sel { background: rgba(8,127,120,.10); }
+    .ac-item .d { color: var(--muted); }
+    .btn-primary, .btn-secondary { box-shadow: 0 8px 18px rgba(27,66,74,.14); }
+    .btn-primary:hover:not(:disabled), .btn-secondary:hover:not(:disabled) { box-shadow: 0 10px 24px rgba(27,66,74,.20); }
+    .btn-ghost, .mini-btn { background: rgba(16,63,72,.05); border-color: rgba(16,63,72,.16); color: var(--muted); }
+    .drg-hero { background: linear-gradient(135deg, rgba(8,125,155,.10), rgba(8,127,120,.04)); border-color: rgba(8,127,120,.28); }
+    .drg-hero::before { background: radial-gradient(circle, rgba(34,211,238,.12), transparent 65%); }
+    .drg-code { color: var(--teal-deep); }
+    .mdc-badge { color: var(--amber); background: rgba(167,91,0,.09); border-color: rgba(167,91,0,.28); }
+    .stat, .rank-item, .hist-item { background: rgba(231,242,243,.62); border-color: rgba(16,63,72,.10); }
+    .alert.ok { background: rgba(8,122,84,.07); border-color: rgba(8,122,84,.28); color: var(--ok); }
+    .alert.warn { background: rgba(167,91,0,.08); border-color: rgba(167,91,0,.30); color: var(--warn); }
+    .alert.err { background: rgba(180,35,24,.07); border-color: rgba(180,35,24,.30); color: var(--err); }
+    .perm-wrap { border-color: rgba(16,63,72,.12); }
+    .perm-table th { background: #e5f0f1; border-bottom-color: rgba(16,63,72,.15); }
+    .perm-table td { border-bottom-color: rgba(16,63,72,.08); }
+    .perm-table tr:hover td { background: rgba(8,127,120,.05); }
+    .perm-table tr.best td { background: rgba(8,122,84,.10); }
+    .perm-table tr.current td { background: rgba(167,91,0,.09); }
+    .perm-table tr.best.current td { background: rgba(8,127,120,.13); }
+    #loader { background: rgba(238,245,246,.96); }
+    .toast { background: #fff; border-color: rgba(180,35,24,.35); color: var(--err); box-shadow: 0 10px 28px rgba(27,66,74,.16); }
+    .toast.ok { border-color: rgba(8,122,84,.35); color: var(--ok); }
+    .toast.warn { border-color: rgba(167,91,0,.35); color: var(--warn); }
+    footer { color: var(--hint); }
+    .mobile-bar { background: rgba(255,255,255,.96); border-top-color: rgba(16,63,72,.12); box-shadow: 0 -10px 26px rgba(27,66,74,.12); }
+
+    /* ===== Final polish: hierarchy, rhythm and interaction states ===== */
+    header { border-color: rgba(8,127,120,.16); }
+    .brand h1 { color: #123e46; letter-spacing: .15px; }
+    .card { padding: 22px; }
+    .card-title { letter-spacing: .25px; }
+    .field { margin-bottom: 16px; }
+    .lbl { color: #527078; }
+    .required { font-size: 10px; letter-spacing: .25px; }
+    input[type=text], input[type=number], select { min-height: 45px; box-shadow: inset 0 1px 2px rgba(16,63,72,.04); }
+    input:focus, select:focus, .chips:focus-within { box-shadow: 0 0 0 3px rgba(8,125,155,.14); }
+    .btn { border-radius: 11px; }
+    .actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr) minmax(84px, auto);
+      align-items: stretch;
+      gap: 10px;
+    }
+    .actions .btn {
+      width: 100%; min-width: 0; flex: none;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .actions .btn-primary, .actions .btn-secondary, .actions .btn-ghost { min-width: 0; }
+    .actions .btn-ghost { padding-inline: 14px; }
+    .action-note { grid-column: 1 / -1; padding-left: 2px; }
+    .case-strip { box-shadow: inset 3px 0 0 var(--teal); }
+    .case-strip[data-state="success"] { box-shadow: inset 3px 0 0 var(--ok); }
+    .case-strip[data-state="working"] { box-shadow: inset 3px 0 0 var(--amber); }
+    .case-strip[data-state="error"] { box-shadow: inset 3px 0 0 var(--err); }
+    .drg-hero { box-shadow: inset 0 0 0 1px rgba(255,255,255,.42); }
+    .stat .v { color: #1b4b55; }
+    .stat .v.amber { color: var(--amber); }
+    .empty { min-height: 290px; display: grid; place-items: center; align-content: center; }
+    .empty p { max-width: 430px; margin-inline: auto; }
+    .hist-item { transition: background .15s, border-color .15s, transform .15s; }
+    .hist-item:hover, .hist-item:focus-visible { border-color: rgba(8,127,120,.28); transform: translateY(-1px); }
+    .mini-btn:hover { color: var(--err); }
+    @media (max-width: 640px) {
+      .card { padding: 18px; }
+      .actions .btn-primary, .actions .btn-secondary, .actions .btn-ghost { min-width: 0; }
+    }
+    @media (min-width: 641px) and (max-width: 760px) {
+      .actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+      .actions .btn-ghost { grid-column: 1 / -1; }
+    }
+
+    /* ===== Reduced motion ===== */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <div>
+        <h1>KTL CMI DRG Seeker</h1>
+        <div class="sub">โรงพยาบาลกันทรลักษ์ · งานยุทธศาสตร์ · เครือข่าย CMI@MoPH</div>
+      </div>
+    </div>
+    <span class="badge"><span class="dot" aria-hidden="true"></span>Grouper ทางการ CMI@MoPH · TGrp6305 v6.3.5</span>
+  </header>
+
+  <div class="grid">
+
+    <!-- ============ FORM ============ -->
+    <div class="card form-card">
+      <div class="card-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg> ข้อมูลผู้ป่วย <span class="line"></span></div>
+      <div class="section-note">เริ่มจากข้อมูลที่จำเป็น แล้วเติมรายละเอียดการรักษาเพื่อให้ Grouper คำนวณได้แม่นยำ</div>
+
+      <div class="field">
+        <label class="lbl" for="hcode">รหัสสถานพยาบาล (HCode) <span class="required">จำเป็น</span></label>
+        <input type="text" id="hcode" value="10929" maxlength="5" inputmode="numeric" placeholder="เช่น 10929" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <div class="lbl" id="sexLbl">เพศ</div>
+        <div class="seg" id="sexSeg" role="radiogroup" aria-labelledby="sexLbl">
+          <button type="button" class="on" data-sex="1" role="radio" aria-checked="true"><svg class="seg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>ชาย</button>
+          <button type="button" data-sex="2" role="radio" aria-checked="false"><svg class="seg-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>หญิง</button>
+        </div>
+      </div>
+
+      <details class="advanced-fields" open>
+        <summary>ข้อมูลการรักษาเพิ่มเติม</summary>
+      <div class="row3">
+        <div class="field">
+          <label class="lbl" for="age">อายุ (ปี)</label>
+          <input type="number" id="age" value="65" min="0" max="120" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label class="lbl" for="ageDay">อายุ (วัน)</label>
+          <input type="number" id="ageDay" value="0" min="0" max="364" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label class="lbl" for="weight">น้ำหนัก (กก.)</label>
+          <input type="number" id="weight" value="60" min="0" max="300" step="0.1" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="row3">
+        <div class="field">
+          <label class="lbl" for="losDay">LOS วัน</label>
+          <input type="number" id="losDay" value="5" min="0" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label class="lbl" for="losHour">LOS ชม.</label>
+          <input type="number" id="losHour" value="0" min="0" max="23" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label class="lbl" for="baseRate">Base Rate (บาท)</label>
+          <input type="number" id="baseRate" value="3504" min="0" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="dcStatus">สถานะจำหน่าย (D/C Status)</label>
+        <select id="dcStatus"><option value="">กำลังโหลด...</option></select>
+      </div>
+      </details>
+
+      <div class="card-title sec"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="m3 6 1 1 2-2"/><path d="m3 12 1 1 2-2"/><path d="m3 18 1 1 2-2"/></svg> รหัสวินิจฉัยและหัตถการ <span class="line"></span></div>
+
+      <div class="field">
+        <label class="lbl" for="pdx">PDx — รหัสวินิจฉัยหลัก (ICD-10) <span class="required">จำเป็น</span></label>
+        <div class="ac-wrap">
+          <input type="text" id="pdx" placeholder="พิมพ์รหัส เช่น I639" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="pdxAc" aria-describedby="pdxError" aria-autocomplete="list" aria-invalid="false">
+          <div class="ac-list" id="pdxAc" role="listbox" aria-label="ผลการค้นหา ICD-10"></div>
+        </div>
+        <div class="field-error" id="pdxError">กรุณาระบุรหัสวินิจฉัยหลักก่อนคำนวณ</div>
+      </div>
+
+      <div class="field">
+        <div class="lbl">SDx — รหัสวินิจฉัยร่วม (Enter เพื่อเพิ่ม)</div>
+        <div class="chips" id="sdxChips" aria-label="รายการ SDx — พิมพ์รหัสแล้วกด Enter"></div>
+        <div class="qrow" id="sdxQuick"></div>
+        <div class="qrow" id="sdxRecent" style="display:none;"></div>
+        <div class="hint">วางหลายรหัสพร้อมกันได้ (คั่นด้วย , space หรือ ;) · Enter ว่างๆ = ไป Proc</div>
+      </div>
+
+      <div class="field">
+        <div class="lbl">Proc — รหัสหัตถการ ICD-9-CM (Enter เพื่อเพิ่ม)</div>
+        <div class="chips" id="procChips" aria-label="รายการ Proc — พิมพ์รหัสแล้วกด Enter"></div>
+        <div class="qrow" id="procQuick"></div>
+        <div class="hint">พิมพ์แล้วมีคำแนะนำอัตโนมัติ · Enter ว่างๆ = คำนวณทันที</div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="btnCalc" title="คำนวณ DRG จากข้อมูลที่กรอก (Ctrl+Enter)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> คำนวณ DRG</button>
+        <button type="button" class="btn btn-secondary" id="btnPermute" title="เปรียบเทียบทุกทางเลือก โดยสลับ SDx ขึ้นเป็น PDx (Ctrl+Shift+Enter)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg> เปรียบเทียบ PDx</button>
+        <button type="button" class="btn btn-ghost" id="btnReset" title="ล้างข้อมูลทั้งหมดกลับค่าเริ่มต้น"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> ล้าง</button>
+        <div class="action-note">คำนวณ = ผลลัพธ์ปัจจุบัน · เปรียบเทียบ PDx = ทดลองทุกทางเลือกเพื่อหา ADJRW ที่เหมาะสม</div>
+      </div>
+      <div class="shortcut-hint">
+        <span><span class="kbd">Enter</span> ไปช่องถัดไป</span>
+        <span><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> คำนวณ</span>
+        <span><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">Enter</span> เปรียบเทียบ</span>
+      </div>
+    </div>
+
+    <!-- ============ RESULT ============ -->
+    <div class="right-col">
+      <div class="card" id="resultCard">
+        <div class="card-title result-card-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg> ผลการคำนวณ <span class="line"></span></div>
+        <div class="case-strip" id="caseStatus" data-state="ready" role="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span><b>พร้อมคำนวณ</b> · กรอก PDx แล้วเลือกการทำงานที่ต้องการ</span></div>
+        <div id="resultBody" aria-live="polite">
+          <div class="empty">
+            <div class="ico" aria-hidden="true"><svg class="ic-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
+            <h2>ยังไม่ได้คำนวณ</h2>
+            <p>กรอกข้อมูลผู้ป่วยและรหัสวินิจฉัย แล้วกด "คำนวณ DRG"<br>
+            หรือกด "เปรียบเทียบ PDx" เพื่อดูทางเลือกและ ADJRW</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="histCard">
+        <div class="card-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> ประวัติการคำนวณ <span class="line"></span>
+          <button type="button" class="mini-btn" id="btnClearHist" title="ลบประวัติทั้งหมด">ล้าง</button>
+        </div>
+        <div id="histBody" aria-live="polite"><div class="hint" style="text-align:center;">ยังไม่มีประวัติ</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <b>KTL CMI DRG Seeker</b> · พัฒนาโดยงานยุทธศาสตร์ รพ.กันทรลักษ์ · เวอร์ชัน v2.0 (2026-08-07)<br>
+    ใช้ Grouper ทางการ <b>CMI@MoPH · TGrp6305 v6.3.5</b> (สำนักพัฒนากลุ่มโรคร่วมไทย สรท.)<br>
+    หมายเหตุ: API จำกัดการเข้าถึงเฉพาะเครือข่ายในประเทศไทย
+  </footer>
+</div>
+
+<!-- แถบปุ่มล่าง (แสดงเฉพาะมือถือ) -->
+<div class="mobile-bar">
+  <button type="button" class="btn btn-primary" id="btnCalcM" title="คำนวณ DRG"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> คำนวณ</button>
+  <button type="button" class="btn btn-secondary" id="btnPermuteM" title="เปรียบเทียบทางเลือก PDx"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg> เปรียบเทียบ</button>
+  <button type="button" class="btn btn-ghost icon-btn" id="btnResetM" title="ล้างข้อมูล" aria-label="ล้างข้อมูล"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
+</div>
+
+<div id="loader" role="status" aria-live="polite"><div class="spin" aria-hidden="true"></div><div class="t" id="loaderTxt">กำลังคำนวณ DRG ผ่าน Grouper ทางการ...</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* ================= CONFIG ================= */
+const API = 'https://had-api.moph.go.th/cmi';
+let SEX = 1;
+let SDX = [];
+let PROC = [];
+let BUSY = false;
+
+/* ================= ICONS (SVG ชุดเดียว stroke 2 — Lucide style, ไม่มี emoji) ================= */
+const S = ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const IC = {
+  search:   '<svg class="ic"' + S + '><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+  repeat:   '<svg class="ic"' + S + '><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
+  check:    '<svg class="ic"' + S + '><path d="M20 6 9 17l-5-5"/></svg>',
+  checkC:   '<svg class="ic"' + S + '><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
+  warn:     '<svg class="ic"' + S + '><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+  err:      '<svg class="ic"' + S + '><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>',
+  money:    '<svg class="ic"' + S + '><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>',
+  copy:     '<svg class="ic-sm"' + S + '><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  x:        '<svg class="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  square:   '<svg class="ic-sm"' + S + '><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  xlSearch: '<svg class="ic-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>'
+};
+
+/* ================= HELPERS ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clean = s => s.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+const parseCodes = raw => raw.trim().toUpperCase().split(/[\s,;]+/).map(clean).filter(Boolean);
+
+function toast(msg, ms, type) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type === 'ok' ? ' ok' : type === 'warn' ? ' warn' : '');
+  void t.offsetWidth;                       /* บังคับ reflow เพื่อให้ transition เริ่มจากต้น */
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), ms || 4500);
+}
+function setCaseStatus(state, title, detail) {
+  const el = $('caseStatus');
+  if (!el) return;
+  el.dataset.state = state || 'ready';
+  el.innerHTML = '<span class="status-dot" aria-hidden="true"></span><span><b>' + esc(title) + '</b>' + (detail ? ' · ' + esc(detail) : '') + '</span>';
+}
+function setPdxError(show) {
+  const field = $('pdx') && $('pdx').closest('.field');
+  if (!field) return;
+  field.classList.toggle('has-error', !!show);
+  $('pdx').setAttribute('aria-invalid', show ? 'true' : 'false');
+}
+async function fetchT(url, opts, ms) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms || 30000);
+  try { return await fetch(url, Object.assign({}, opts, { signal: ctl.signal })); }
+  finally { clearTimeout(t); }
+}
+async function apiGet(path) {
+  const r = await fetchT(API + '/' + path, { method: 'GET' }, 20000);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+async function apiPost(path, body) {
+  const r = await fetchT(API + '/' + path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  }, 30000);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+/* fallback ผ่าน GAS server (เมื่อ client fetch ติด — โหมด deploy บน Apps Script) */
+function serverCalc(payload) {
+  if (typeof google === 'undefined' || !google.script || !google.script.run) {
+    return Promise.reject(new Error('server proxy ไม่พร้อมใช้งาน (โหมด preview)'));
+  }
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(res => { try { resolve(JSON.parse(res.body)); } catch (e) { reject(new Error('bad server body')); } })
+      .withFailureHandler(err => reject(new Error(String(err))))
+      .proxyCalc(payload);
+  });
+}
+function serverLib(path) {
+  if (typeof google === 'undefined' || !google.script || !google.script.run) {
+    return Promise.reject(new Error('server proxy ไม่พร้อมใช้งาน (โหมด preview)'));
+  }
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(res => { try { resolve(JSON.parse(res.body)); } catch (e) { reject(e); } })
+      .withFailureHandler(err => reject(new Error(String(err))))
+      .proxyLib(path);
+  });
+}
+/* เลื่อนไปยัง element แบบปลอดภัย (ไม่ใช้ scrollIntoView) */
+function scrollToEl(el) {
+  if (!el) return;
+  const offset = window.innerWidth <= 640 ? 96 : 16;
+  const y = el.getBoundingClientRect().top + window.pageYOffset - offset;
+  window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+}
+function emptyState() {
+  return `<div class="empty"><div class="ico" aria-hidden="true">${IC.xlSearch}</div>
+    <h2>ยังไม่ได้คำนวณ</h2>
+    <p>กรอกข้อมูลผู้ป่วยและรหัสวินิจฉัย แล้วกด "คำนวณ DRG"<br>
+    หรือกด "เปรียบเทียบ PDx" เพื่อดูทางเลือกและ ADJRW</p></div>`;
+}
+function setBusy(b, which) {
+  BUSY = b;
+  ['btnCalc', 'btnPermute', 'btnReset', 'btnCalcM', 'btnPermuteM', 'btnResetM'].forEach(id => {
+    const el = $(id);
+    if (el) el.disabled = b;
+  });
+  if (which && $(which)) $(which).classList.toggle('loading', b);
+}
+
+/* ================= D/C STATUS ================= */
+async function loadDc() {
+  try {
+    let d;
+    try { d = await apiGet('libs/ipd-result'); }
+    catch (e) { d = await serverLib('libs/ipd-result'); }
+    const dcList = (d && d.rows) || [];
+    const sel = $('dcStatus');
+    sel.innerHTML = '';
+    dcList.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.code;
+      o.textContent = (r.name_th || r.name) + ' (' + r.code + ')';
+      sel.appendChild(o);
+    });
+    if (dcList.some(r => r.code === '11')) sel.value = '11';
+  } catch (e) {
+    $('dcStatus').innerHTML = '<option value="11">ใช้ค่าเริ่มต้น (11)</option>';
+    $('dcStatus').value = '11';
+  }
+}
+
+/* ================= PDx AUTOCOMPLETE (ICD-10) ================= */
+let pdAcTimer = null, pdAcIndex = -1;
+const pdxInput = $('pdx'), pdxList = $('pdxAc');
+function updatePdxReadiness() {
+  const pdx = clean(pdxInput.value);
+  if (pdx) {
+    setPdxError(false);
+    setCaseStatus('ready', 'พร้อมคำนวณ', 'PDx ' + pdx + ' · ตรวจสอบข้อมูลแล้วกดคำนวณ');
+  } else {
+    setCaseStatus('ready', 'รอข้อมูล PDx', 'กรอกรหัสวินิจฉัยหลักเพื่อเริ่มคำนวณ');
+  }
+}
+function openPdxList() { pdxList.classList.add('open'); pdxInput.setAttribute('aria-expanded', 'true'); }
+function closePdxList() { pdxList.classList.remove('open'); pdxInput.setAttribute('aria-expanded', 'false'); pdAcIndex = -1; }
+function renderPdxAc(rows) {
+  if (!rows.length) {
+    pdxList.innerHTML = '<div class="ac-empty">ไม่พบรหัส ICD-10 ที่ตรงกัน</div>';
+    openPdxList();
+    return;
+  }
+  pdxList.innerHTML = rows.map((r, i) =>
+    `<div class="ac-item" id="pdxAc-${i}" data-code="${esc(r.icd10)}" role="option" aria-selected="false"><span class="c">${esc(r.icd10)}</span><span class="d">${esc(r.who_full_desc || r.icd10_3_code_desc || '')}</span></div>`
+  ).join('');
+  openPdxList();
+}
+function selectPdxAc(item) {
+  pdxInput.value = item.dataset.code;
+  updatePdxReadiness();
+  closePdxList();
+  syncSdxVsPdx();
+}
+pdxInput.addEventListener('input', function () {
+  const q = this.value.trim();
+  updatePdxReadiness();
+  pdAcIndex = -1;
+  clearTimeout(pdAcTimer);
+  syncSdxVsPdx();                             /* ถ้าชนกับ SDx ที่มีอยู่ → ลบออก */
+  if (!q) { closePdxList(); pdxList.innerHTML = ''; return; }
+  pdAcTimer = setTimeout(async () => {
+    try {
+      let d;
+      try { d = await apiGet('libs/icd10/' + encodeURIComponent(q)); }
+      catch (e) { d = await serverLib('libs/icd10/' + encodeURIComponent(q)); }
+      renderPdxAc((d && d.rows) || []);
+    } catch (e) { closePdxList(); }
+  }, 300);
+});
+pdxList.addEventListener('click', e => {
+  const item = e.target.closest('.ac-item');
+  if (item) selectPdxAc(item);
+});
+/* คีย์บอร์ด: ลูกศรเลือก, Enter ยืนยัน/คำนวณ, Esc ปิด */
+pdxInput.addEventListener('keydown', e => {
+  if (!pdxList.classList.contains('open')) {
+    if (e.key === 'Enter') { e.preventDefault(); focusChip($('sdxChips')); }
+    return;
+  }
+  const items = [...pdxList.querySelectorAll('.ac-item')];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    pdAcIndex = e.key === 'ArrowDown' ? Math.min(pdAcIndex + 1, items.length - 1) : Math.max(pdAcIndex - 1, 0);
+    items.forEach((it, i) => {
+      it.classList.toggle('sel', i === pdAcIndex);
+      it.setAttribute('aria-selected', i === pdAcIndex ? 'true' : 'false');
+    });
+    if (items[pdAcIndex]) {
+      pdxInput.setAttribute('aria-activedescendant', 'pdxAc-' + pdAcIndex);
+      items[pdAcIndex].scrollIntoView({ block: 'nearest' });
+    }
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (pdAcIndex >= 0 && items[pdAcIndex]) selectPdxAc(items[pdAcIndex]);
+    else $('btnCalc').click();
+  } else if (e.key === 'Escape') {
+    closePdxList();
+  }
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ac-wrap')) closePdxList();
+});
+
+/* ================= CHIPS (SDx / Proc) ================= */
+function focusChip(container) {
+  const inp = container.querySelector('.chip-input');
+  if (inp) inp.focus();
+}
+function bindChips(container, arr, kind) {
+  container._arr = arr;
+  container._kind = kind;
+  /* delegation: ลบ chip / เลือก autocomplete / โฟกัส input — ผูกครั้งเดียว ไม่สะสม listener */
+  container.addEventListener('click', e => {
+    const item = e.target.closest('.ac-item');
+    if (item) { pickProcAc(item, container); return; }
+    const x = e.target.closest('.chip-x');
+    if (x) {
+      const i = arr.indexOf(x.dataset.c);
+      if (i >= 0) { arr.splice(i, 1); chipRow(container, arr); }
+      return;
+    }
+    const inp = container.querySelector('.chip-input');
+    if (inp && e.target !== inp) inp.focus();
+  });
+}
+/* เพิ่มรหัสพร้อมกัน + กันรหัสซ้ำกับ PDx (เฉพาะช่อง SDx) */
+function addCodes(container, arr, codes) {
+  let skipped = 0;
+  const pdxCur = clean($('pdx').value);
+  codes.forEach(c => {
+    if (!c || arr.includes(c)) return;
+    if (container._kind === 'sdx' && c === pdxCur) { skipped++; return; }
+    arr.push(c);
+  });
+  if (skipped) toast('ข้าม ' + skipped + ' รหัสที่ซ้ำกับ PDx (' + pdxCur + ')', 3000, 'warn');
+  if (codes.length) chipRow(container, arr);
+}
+/* ถ้า PDx เปลี่ยนไปชนกับ SDx ที่มีอยู่ → ลบ SDx ตัวนั้นทิ้ง + toast */
+function syncSdxVsPdx() {
+  const p = clean($('pdx').value);
+  if (!p) return;
+  if (SDX.includes(p)) {
+    SDX = SDX.filter(x => x !== p);
+    chipRow($('sdxChips'), SDX);
+    toast('ลบ ' + p + ' ออกจาก SDx (ซ้ำกับ PDx)', 2500, 'warn');
+  }
+}
+function chipRow(container, arr) {
+  const kind = container._kind;
+  const label = kind === 'proc' ? 'เพิ่มรหัสหัตถการ' : 'เพิ่มรหัสวินิจฉัย';
+  container.innerHTML = arr.map(c =>
+    `<span class="chip">${esc(c)}<button type="button" class="chip-x" data-c="${esc(c)}" aria-label="ลบ ${esc(c)}" title="ลบ ${esc(c)}">${IC.x}</button></span>`
+  ).join('') + `<input type="text" class="chip-input" placeholder="พิมพ์รหัส..." aria-label="${label}" autocomplete="off">`;
+  const inp = container.querySelector('.chip-input');
+  inp.addEventListener('input', () => { if (kind === 'proc') procAcSearch(inp, container); });
+  inp.addEventListener('keydown', e => {
+    const list = container.querySelector('.ac-list');
+    const open = list && list.classList.contains('open');
+    const items = open ? [...list.querySelectorAll('.ac-item')] : [];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!items.length) return;
+      e.preventDefault();
+      procAcIndex = e.key === 'ArrowDown' ? Math.min(procAcIndex + 1, items.length - 1) : Math.max(procAcIndex - 1, 0);
+      items.forEach((it, i) => it.classList.toggle('sel', i === procAcIndex));
+      return;
+    }
+    if (e.key === 'Escape') { closeProcAc(container); inp.blur(); return; }
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (open && procAcIndex >= 0 && items[procAcIndex]) { pickProcAc(items[procAcIndex], container); return; }
+      const codes = parseCodes(inp.value);
+      if (codes.length) { addCodes(container, arr, codes); focusChip(container); return; }
+      /* Enter ซ้ำเมื่อช่องว่าง = ไปขั้นถัดไป */
+      if (kind === 'sdx') focusChip($('procChips'));
+      else $('btnCalc').click();
+    }
+  });
+  /* วาง/พิมพ์หลายรหัสพร้อมกัน: คั่นด้วย , space หรือ ; */
+  inp.addEventListener('paste', e => {
+    e.preventDefault();
+    const txt = (e.clipboardData || window.clipboardData).getData('text');
+    const codes = parseCodes(txt);
+    if (!codes.length) return;
+    addCodes(container, arr, codes);
+    focusChip(container);
+  });
+  inp.addEventListener('blur', () => {
+    closeProcAc(container);
+    const codes = parseCodes(inp.value);
+    if (!codes.length) return;
+    addCodes(container, arr, codes);
+  });
+  if (kind === 'sdx') renderRecent();
+}
+
+/* ===== Proc autocomplete (ICD-9-CM /libs/icd-cm) ===== */
+let procAcTimer = null, procAcIndex = -1, procAcRows = [];
+function closeProcAc(container) {
+  const l = container.querySelector('.ac-list');
+  if (l) l.classList.remove('open');
+  procAcIndex = -1;
+  procAcRows = [];
+}
+function pickProcAc(item, container) {
+  addCodes(container, container._arr, [item.dataset.code]);
+  closeProcAc(container);
+  focusChip(container);
+}
+function procAcSearch(inp, container) {
+  const q = inp.value.trim();
+  clearTimeout(procAcTimer);
+  procAcIndex = -1;
+  if (!q) { closeProcAc(container); return; }
+  procAcTimer = setTimeout(async () => {
+    if (document.activeElement !== inp) return;   /* ผู้ใช้ย้ายไปที่อื่นแล้ว */
+    let rows = [];
+    try {
+      let d;
+      try { d = await apiGet('libs/icd-cm/' + encodeURIComponent(q)); }
+      catch (e) { d = await serverLib('libs/icd-cm/' + encodeURIComponent(q)); }
+      rows = (d && d.rows) || [];
+    } catch (e) { rows = []; }
+    let list = container.querySelector('.ac-list');
+    if (!list) {
+      list = document.createElement('div');
+      list.className = 'ac-list';
+      list.setAttribute('role', 'listbox');
+      list.setAttribute('aria-label', 'ผลการค้นหาหัตถการ ICD-9-CM');
+      container.appendChild(list);
+    }
+    if (!rows.length) {
+      list.innerHTML = '<div class="ac-empty">ไม่พบรหัสหัตถการที่ตรงกัน</div>';
+      list.classList.add('open');
+      return;
+    }
+    procAcRows = rows;
+    list.innerHTML = rows.map(r =>
+      `<div class="ac-item" data-code="${esc(r.icd)}" role="option"><span class="c">${esc(r.icd)}</span><span class="d">${esc(r.procedname || '')}</span></div>`
+    ).join('');
+    list.classList.add('open');
+  }, 300);
+}
+
+/* ================= QUICK PICKS (รหัสพบบ่อย + ล่าสุด) ================= */
+const COMMON_DX = [
+  ['I10', 'ความดันโลหิตสูง'], ['E119', 'เบาหวาน'], ['E789', 'ไขมันในเลือด'],
+  ['N189', 'ไตวายเรื้อรัง'], ['J449', 'COPD'], ['I509', 'หัวใจล้มเหลว'],
+  ['I489', 'หัวใจเต้นผิดจังหวะ'], ['J189', 'ปอดบวม'], ['A419', 'ติดเชื้อในเลือด'], ['N390', 'ทางเดินปัสสาวะอักเสบ']
+];
+const COMMON_PROC = [['8703', 'ฟอกเลือด'], ['4709', 'ผ่าตัดไส้ติ่ง'], ['9904', 'ให้เลือด/ส่วนประกอบ']];
+function bindQuick(row, arr, chipsId) {
+  row.querySelectorAll('.qchip').forEach(b => {
+    b.addEventListener('click', () => {
+      const c = b.dataset.code;
+      const pdxCur = clean($('pdx').value);
+      if (chipsId === 'sdxChips' && c === pdxCur) {
+        toast('รหัส ' + c + ' ซ้ำกับ PDx — ไม่เพิ่ม', 3000, 'warn');
+        return;
+      }
+      if (!arr.includes(c)) { arr.push(c); chipRow($(chipsId), arr); }
+      b.classList.add('added');
+      setTimeout(() => b.classList.remove('added'), 600);
+    });
+  });
+}
+function renderQuick() {
+  $('sdxQuick').innerHTML = '<span class="qlbl">พบบ่อย:</span>' + COMMON_DX.map(([c, label]) =>
+    `<button type="button" class="qchip" data-code="${c}" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
+  $('procQuick').innerHTML = '<span class="qlbl">พบบ่อย:</span>' + COMMON_PROC.map(([c, label]) =>
+    `<button type="button" class="qchip" data-code="${c}" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
+  bindQuick($('sdxQuick'), SDX, 'sdxChips');
+  bindQuick($('procQuick'), PROC, 'procChips');
+  renderRecent();
+}
+function getRecent() { try { return JSON.parse(localStorage.getItem('ktl_drg_recent') || '[]'); } catch (e) { return []; } }
+function saveRecent(codes) {
+  let r = getRecent();
+  codes.forEach(c => { if (c && !r.includes(c)) r.unshift(c); });
+  r = r.slice(0, 10);
+  try { localStorage.setItem('ktl_drg_recent', JSON.stringify(r)); } catch (e) {}
+}
+function renderRecent() {
+  const r = getRecent().filter(c => !SDX.includes(c)).slice(0, 6);
+  const row = $('sdxRecent');
+  if (!r.length) { row.style.display = 'none'; return; }
+  row.style.display = 'flex';
+  row.innerHTML = '<span class="qlbl">ล่าสุด:</span>' + r.map(c =>
+    `<button type="button" class="qchip" data-code="${c}" title="เพิ่ม ${c}">${c}</button>`).join('');
+  bindQuick(row, SDX, 'sdxChips');
+}
+
+/* ================= COPY ================= */
+function copyText(txt) {
+  const done = () => toast('คัดลอกผลลัพธ์แล้ว', 2200, 'ok');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done).catch(() => fallbackCopy(txt, done));
+  } else fallbackCopy(txt, done);
+}
+function fallbackCopy(txt, done) {
+  const ta = document.createElement('textarea');
+  ta.value = txt;
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) { toast('คัดลอกไม่สำเร็จ', 2500, 'warn'); }
+  ta.remove();
+}
+
+/* ================= GLOBAL SHORTCUTS ================= */
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    if (e.shiftKey) $('btnPermute').click();
+    else $('btnCalc').click();
+  }
+});
+
+/* ================= MOBILE BOTTOM BAR ================= */
+['btnCalcM', 'btnPermuteM', 'btnResetM'].forEach(mid => {
+  const mb = $(mid), t = $(mid.replace('M', ''));
+  if (mb && t) mb.addEventListener('click', () => t.click());
+});
+
+/* ================= SEX TOGGLE ================= */
+const segBtns = [...$('sexSeg').querySelectorAll('button')];
+function setSex(v) {
+  SEX = v;
+  segBtns.forEach(b => {
+    const on = +b.dataset.sex === v;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+segBtns.forEach(b => b.addEventListener('click', () => setSex(+b.dataset.sex)));
+$('sexSeg').addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  e.preventDefault();
+  const cur = segBtns.findIndex(b => +b.dataset.sex === SEX);
+  const next = e.key === 'ArrowRight' ? (cur + 1) % segBtns.length : (cur - 1 + segBtns.length) % segBtns.length;
+  setSex(+segBtns[next].dataset.sex);
+  segBtns[next].focus();
+});
+
+/* ================= PAYLOAD BUILDER ================= */
+function buildPayload(pdx, sdx) {
+  const dcCode = $('dcStatus').value || '11';
+  return {
+    version: '6',
+    data: [{
+      hcode: ($('hcode').value.trim() || '10929'),
+      hn: '', an: '1',
+      sex: SEX,
+      age: +($('age').value || 0),
+      age_day: +($('ageDay').value || 0),
+      los_day: +($('losDay').value || 0),
+      los_hour: +($('losHour').value || 0),
+      weight: +($('weight').value || 0),
+      dischs: dcCode.charAt(0),
+      discht: dcCode.charAt(1) || '1',
+      pdx: pdx,
+      sdx: (sdx || []).slice(0, 12),
+      proc: PROC.slice(0, 20)
+    }]
+  };
+}
+async function calcOne(payload) {
+  let d;
+  try { d = await apiPost('drg/calculate', payload); }
+  catch (e) {
+    d = await serverCalc(payload);          /* fallback ผ่าน GAS */
+    if (!d || d.status !== 200) throw new Error('server proxy failed');
+  }
+  return d;
+}
+
+/* ================= CALCULATE ================= */
+$('btnCalc').addEventListener('click', async () => {
+  if (BUSY) return;
+  const pdx = clean($('pdx').value);
+  if (!pdx) {
+    setPdxError(true);
+    $('pdx').classList.add('invalid');
+    $('pdx').focus();
+    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'กรุณาระบุ PDx ก่อนคำนวณ');
+    toast('กรุณาระบุ PDx (รหัสวินิจฉัยหลัก)', 3000, 'warn');
+    setTimeout(() => $('pdx').classList.remove('invalid'), 1800);
+    return;
+  }
+  const payload = buildPayload(pdx, SDX);
+  setBusy(true, 'btnCalc');
+  setCaseStatus('working', 'กำลังคำนวณ', 'ส่งข้อมูลไปยัง Grouper ทางการ');
+  $('loaderTxt').textContent = 'กำลังคำนวณ DRG ผ่าน Grouper ทางการ...';
+  $('loader').classList.add('show');
+  try {
+    const d = await calcOne(payload);
+    const r = (d.data && d.data[0]) || {};
+    if (!r.drg) throw new Error('ไม่ได้รับผลลัพธ์จาก grouper');
+    renderResult(r, d.tgrp || {});
+    saveHistory(payload.data[0], r);
+    saveRecent([pdx, ...SDX]);
+    toast('คำนวณเสร็จ · DRG ' + r.drg + ' · ADJRW ' + fmt(r.adjrw), 3000, 'ok');
+    setCaseStatus('success', 'คำนวณสำเร็จ', 'DRG ' + r.drg + ' · ADJRW ' + fmt(r.adjrw));
+  } catch (e) {
+    renderError(e);
+    setCaseStatus('error', 'คำนวณไม่สำเร็จ', friendlyError(e));
+  } finally {
+    $('loader').classList.remove('show');
+    setBusy(false);
+  }
+});
+
+/* ================= PERMUTE (สลับ SDx → PDx ทุกรูปแบบ) ================= */
+const SDX_GROUP = 12;         /* API รองรับ SDx สูงสุด 12 ต่อ 1 call */
+const MAX_SCENARIOS = 2000;   /* กัน combinatorial explosion */
+let STOP_PERMUTE = false;
+
+/* combinations ขนาด k แบบ generator — หยุดได้กลางทาง ไม่สร้าง array มหาศาล */
+function* combinations(arr, k) {
+  const n = arr.length;
+  const idx = Array.from({ length: k }, (_, i) => i);
+  while (true) {
+    yield idx.map(i => arr[i]);
+    let i = k - 1;
+    while (i >= 0 && idx[i] === n - k + i) i--;
+    if (i < 0) return;
+    idx[i]++;
+    for (let j = i + 1; j < k; j++) idx[j] = idx[j - 1] + 1;
+  }
+}
+/* ฉลาด: แต่ละรหัสลองเป็น PDx; ถ้า SDx เกิน 12 → ทุก combination กลุ่มละ 12 (dedupe + cap 2000) */
+function buildScenarios(codes, currentPdx) {
+  const seen = new Set(), list = [];
+  let capped = false;
+  const addOne = (pdxCand, pool) => {
+    if (list.length >= MAX_SCENARIOS) { capped = true; return; }
+    const combos = pool.length <= SDX_GROUP ? [pool] : combinations(pool, SDX_GROUP);
+    for (const combo of combos) {
+      if (list.length >= MAX_SCENARIOS) { capped = true; return; }
+      const key = pdxCand + '|' + [...combo].sort().join(',');
+      if (!seen.has(key)) { seen.add(key); list.push({ pdx: pdxCand, sdx: combo }); }
+    }
+  };
+  addOne(currentPdx, codes.filter(c => c !== currentPdx));
+  for (const c of codes) if (c !== currentPdx) addOne(c, codes.filter(x => x !== c));
+  return { scenarios: list, capped };
+}
+
+$('btnPermute').addEventListener('click', async () => {
+  if (BUSY) return;
+  const pdx = clean($('pdx').value);
+  if (!pdx) { setPdxError(true); setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'กรุณาระบุ PDx ก่อนเปรียบเทียบ'); toast('กรุณาระบุ PDx (รหัสวินิจฉัยหลัก)', 3000, 'warn'); return; }
+  const codes = [...new Set([pdx, ...SDX.map(clean)])].filter(Boolean);
+  if (codes.length < 2) { toast('เพิ่ม SDx อย่างน้อย 1 รหัส เพื่อให้สลับเป็น PDx ได้', 3500, 'warn'); return; }
+  if (codes.length > 30) { toast('รหัสเยอะเกินไป (สูงสุด 30) — ลด SDx ก่อน', 3500, 'warn'); return; }
+
+  const { scenarios, capped } = buildScenarios(codes, pdx);
+  const t0 = Date.now();
+  STOP_PERMUTE = false;
+
+  setBusy(true);
+  setCaseStatus('working', 'กำลังเปรียบเทียบ PDx', 'ทดสอบ ' + scenarios.length + ' ทางเลือก · หยุดได้ทุกเมื่อ');
+  renderPermuteStream(scenarios.length, capped);
+  const results = [];
+  for (let i = 0; i < scenarios.length; i++) {
+    if (STOP_PERMUTE) break;
+    const s = scenarios[i];
+    updatePermuteProgress(i + 1, scenarios.length, s.pdx, t0);
+    const payload = buildPayload(s.pdx, s.sdx);
+    try {
+      const d = await calcOne(payload);
+      const r = (d.data && d.data[0]) || {};
+      results.push({ pdx: s.pdx, sdx: s.sdx, r, err: false });
+      permAppendRow(i + 1, s, r, false);
+    } catch (e) {
+      results.push({ pdx: s.pdx, sdx: s.sdx, r: { drg: '—', err: -1, error: String(e.message || e) }, err: true });
+      permAppendRow(i + 1, s, null, true);
+    }
+  }
+  setBusy(false);
+  saveRecent(codes);
+  renderPermute(results, pdx, Date.now() - t0, capped, STOP_PERMUTE);
+  setCaseStatus('success', STOP_PERMUTE ? 'หยุดการเปรียบเทียบแล้ว' : 'เปรียบเทียบเสร็จ', results.length + ' ทางเลือก · ดูอันดับ PDx ด้านล่าง');
+});
+
+/* แผง streaming: โชว์ผลสดทีละแบบ + progress + ตัวนับ + ETA จริง + ปุ่มหยุด */
+function renderPermuteStream(total, capped) {
+  $('resultBody').innerHTML = `
+    <div class="alert ok" style="margin-bottom:4px;">${IC.repeat} <span>
+      กำลังทดสอบ <b id="permDone">0</b>/<b>${total}</b> แบบ${capped ? ' (จำกัดสูงสุด ' + MAX_SCENARIOS + ' แบบ)' : ''}
+      · เหลือเวลาประมาณ <b id="permEta">${Math.ceil(total * 1.4 / 60)}</b> นาที
+    </span></div>
+    <div class="prog"><i id="permBar"></i></div>
+    <div class="perm-status-line">
+      <span class="hint" id="permNow">กำลังส่งแบบที่ 1 ...</span>
+      <button type="button" class="mini-btn" id="btnStopPerm">${IC.square} หยุด</button>
+    </div>
+    <div class="perm-wrap"><table class="perm-table stream" id="permTable">
+      <tr><th>#</th><th>PDx</th><th>SDx</th><th>DRG</th><th>MDC</th><th>RW</th><th>ADJRW</th><th>WTLOS</th><th>OT</th><th>ผล</th></tr>
+      <tr id="permEmpty"><td colspan="10" class="n" style="text-align:center;">กำลังรอผลแรก...</td></tr>
+    </table></div>`;
+  const st = $('btnStopPerm');
+  if (st) st.addEventListener('click', () => { STOP_PERMUTE = true; st.disabled = true; st.textContent = 'กำลังหยุด...'; });
+}
+function updatePermuteProgress(done, total, pdx, t0) {
+  const el = $('permDone'), bar = $('permBar'), eta = $('permEta'), now = $('permNow');
+  if (el) el.textContent = done;
+  if (bar) bar.style.width = Math.min(100, (done / total) * 100) + '%';
+  if (now) now.textContent = 'กำลังส่งแบบที่ ' + done + '/' + total + ' · PDx=' + pdx + ' ...';
+  if (eta && done > 0) {
+    const spent = (Date.now() - t0) / 1000;
+    const remain = Math.max(0, (spent / done) * (total - done));
+    eta.textContent = Math.floor(remain / 60) + ' นาที ' + Math.ceil(remain % 60) + ' วินาที';
+  }
+}
+function permAppendRow(i, s, r, isErr) {
+  const tb = $('permTable'), empty = $('permEmpty');
+  if (!tb) return;
+  if (empty) empty.remove();
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="n">${i}</td>
+    <td><b>${esc(s.pdx)}</b></td>
+    <td class="n">${esc(s.sdx.join(', '))}</td>
+    <td class="drg">${isErr ? '—' : esc(r.drg)}</td>
+    <td>${isErr ? '—' : esc(r.mdc || '—')}</td>
+    <td>${isErr ? '—' : fmt(r.rw)}</td>
+    <td>${isErr ? '—' : fmt(r.adjrw || 0)}</td>
+    <td>${isErr ? '—' : fmt(r.wtlos)}</td>
+    <td>${isErr ? '—' : (r.ot ?? '—')}</td>
+    <td>${isErr ? '<span class="gain-dn">ERR</span>' : (r.err > 0 ? `<span class="gain-dn">err=${r.err}</span>` : (r.warn > 0 ? `<span style="color:var(--warn)">warn=${r.warn}</span>` : IC.check))}</td>`;
+  tb.appendChild(tr);
+}
+
+function renderPermute(results, currentPdx, elapsedMs, capped, stopped) {
+  const cur = results.find(x => x.pdx === currentPdx && !x.err);
+  const curAdj = cur ? (cur.r.adjrw || 0) : null;
+
+  const sorted = [...results].sort((a, b) => {
+    const va = a.err ? -1 : (a.r.adjrw || 0);
+    const vb = b.err ? -1 : (b.r.adjrw || 0);
+    return vb - va;
+  });
+  const bestPdx = sorted.length && !sorted[0].err ? sorted[0].pdx : null;
+  const note = capped ? ' · จำกัดสูงสุด ' + MAX_SCENARIOS + ' แบบ (รหัสเยอะเกิน)' : (stopped ? ' · หยุดก่อนครบ (แสดงผลที่มีอยู่)' : '');
+
+  /* อันดับ PDx: แต่ละ PDx ใช้ ADJRW สูงสุดที่เจอ แล้วจัด Top 3 */
+  const pdxBest = new Map();
+  sorted.filter(s => !s.err).forEach(s => {
+    const a = s.r.adjrw || 0;
+    if (!pdxBest.has(s.pdx) || a > pdxBest.get(s.pdx)) pdxBest.set(s.pdx, a);
+  });
+  const rank = [...pdxBest.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const rankHtml = rank.length > 1
+    ? '<div class="rank-row">' + rank.map(([p, a], i) =>
+        `<span class="rank-item ${i === 0 ? 'rank-top' : ''}">${i + 1}. <b>${esc(p)}</b> · ADJRW ${fmt(a)}</span>`).join('') + '</div>'
+    : '';
+
+  let html = `
+    <div class="alert ok" style="margin-bottom:4px;">${IC.repeat} <span>ทดสอบ <b>${results.length}</b> แบบ (สลับ SDx→PDx ทุกชุด ${SDX_GROUP} ตัว) · ใช้เวลา ${(elapsedMs / 1000).toFixed(1)} วินาที${note}
+    ${bestPdx ? ` · <b>แนะนำ PDx = ${esc(bestPdx)}</b> (ADJRW สูงสุด)` : ''}</span></div>
+    ${rankHtml}
+    <div class="perm-wrap"><table class="perm-table">
+      <tr><th>#</th><th>PDx</th><th>SDx</th><th>DRG</th><th>MDC</th><th>RW</th><th>ADJRW</th><th>ΔADJRW</th><th>WTLOS</th><th>OT</th><th>ผล</th></tr>`;
+
+  sorted.forEach((s, i) => {
+    const isCur = s.pdx === currentPdx;
+    const isBest = !s.err && bestPdx && s.pdx === bestPdx;
+    const adj = s.err ? null : (s.r.adjrw || 0);
+    let delta = '—';
+    if (adj !== null && curAdj !== null) {
+      const d = adj - curAdj;
+      delta = `<span class="${d >= 0 ? 'gain-up' : 'gain-dn'}">${d >= 0 ? '+' : ''}${d.toFixed(4)}</span>`;
+    }
+    const tags = [];
+    if (isBest) tags.push('<span class="tag best">ดีที่สุด</span>');
+    if (isCur) tags.push('<span class="tag cur">ปัจจุบัน</span>');
+    let statusTxt;
+    if (s.err) statusTxt = '<span class="gain-dn">ERR</span>';
+    else if (s.r.err > 0) statusTxt = `<span class="gain-dn">err=${s.r.err}</span>`;
+    else if (s.r.warn > 0) statusTxt = `<span style="color:var(--warn)">warn=${s.r.warn}</span>`;
+    else statusTxt = IC.check;
+    html += `
+      <tr class="${(isBest ? 'best ' : '') + (isCur ? 'current' : '')}">
+        <td class="n">${i + 1}</td>
+        <td><b>${esc(s.pdx)}</b>${tags.join(' ')}</td>
+        <td class="n">${esc(s.sdx.join(', ')) || '—'}</td>
+        <td class="drg">${s.err ? '—' : esc(s.r.drg)}</td>
+        <td>${s.err ? '—' : esc(s.r.mdc || '—')}</td>
+        <td>${s.err ? '—' : fmt(s.r.rw)}</td>
+        <td>${s.err ? '—' : fmt(adj)}</td>
+        <td>${delta}</td>
+        <td>${s.err ? '—' : fmt(s.r.wtlos)}</td>
+        <td>${s.err ? '—' : (s.r.ot ?? '—')}</td>
+        <td>${statusTxt}</td>
+      </tr>`;
+  });
+
+  html += `</table></div>
+    <div class="hint" style="margin-top:8px;">แต่ละแบบใช้ Grouper ทางการ ~1.4 วินาที · ถ้า SDx เกิน ${SDX_GROUP} รหัส จะทดสอบทุกชุด ${SDX_GROUP} ตัว เพื่อให้เห็น RW ทุกรูปแบบ</div>`;
+  $('resultBody').innerHTML = html;
+  scrollToEl($('resultCard'));
+  if (stopped) toast('หยุดการทดสอบแล้ว — แสดงผลที่มีอยู่', 3500, 'warn');
+  else toast('ทดสอบเสร็จสิ้น · ' + results.length + ' แบบ', 3000, 'ok');
+}
+
+/* ================= RENDER ================= */
+function renderResult(r, tgrp) {
+  const baseRate = +($('baseRate').value || 3504);
+  const pay = (r.adjrw || 0) * baseRate;
+  const errs = [], warns = [];
+  if (r.err > 0) errs.push(r.err);
+  if (r.warn > 0) { for (let b = 0; b <= 15; b++) { if (r.warn & (1 << b)) warns.push(1 << b); } }
+
+  let html = `
+    <div class="drg-hero">
+      <div>
+        <div class="drg-code">${esc(r.drg)}</div>
+        <div class="drg-name" id="drgNameRow">กำลังโหลดชื่อ DRG...</div>
+      </div>
+      <span class="mdc-badge">MDC ${esc(r.mdc || '—')}</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">RW</div><div class="v">${fmt(r.rw)}</div></div>
+      <div class="stat"><div class="k">ADJRW</div><div class="v amber">${fmt(r.adjrw)}</div></div>
+      <div class="stat"><div class="k">WTLOS</div><div class="v">${fmt(r.wtlos)}</div></div>
+      <div class="stat"><div class="k">OT</div><div class="v">${r.ot ?? '—'}</div></div>
+      <div class="stat"><div class="k">LOS</div><div class="v">${r.los ?? '—'}</div></div>
+    </div>
+    <div class="alert ok" style="margin-top:14px;">
+      ${IC.money} <span>ประมาณการค่าใช้จ่าย (ADJRW × Base Rate ${fmtNum(baseRate)}): <b style="margin-left:auto;">${fmtNum(pay)} บาท</b></span>
+    </div>`;
+
+  if (errs.length) {
+    html += `<div class="alert err">${IC.err} <span>Error ${errs.join(', ')}: <span id="errTxt">กำลังโหลด...</span></span></div>`;
+  }
+  if (warns.length) {
+    html += `<div class="alert warn">${IC.warn} <span>Warning ${warns.join(', ')}: <span id="warnTxt">กำลังโหลด...</span></span></div>`;
+  }
+  if (!errs.length && !warns.length) {
+    html += `<div class="alert ok">${IC.checkC} <span>Grouper ประมวลผลผ่าน ไม่มี Error / Warning</span></div>`;
+  }
+  html += `<div class="meta"><span>ชุดข้อมูล: PDx ${esc(clean($('pdx').value))} · Grouper: ${esc(tgrp.FileDescription || 'TGrp6305')} (${esc(tgrp.ProductVersion || '6.3.5')})</span><span>${new Date().toLocaleString('th-TH')}</span></div>
+  <button type="button" class="mini-btn" id="btnCopy" style="margin-top:10px;">${IC.copy} คัดลอกผลลัพธ์</button>`;
+
+  $('resultBody').innerHTML = html;
+  scrollToEl($('resultCard'));
+
+  const cp = $('btnCopy');
+  if (cp) cp.addEventListener('click', () =>
+    copyText(`DRG ${r.drg} · MDC ${r.mdc} · RW ${fmt(r.rw)} · ADJRW ${fmt(r.adjrw)} · ประมาณการ ${fmtNum(pay)} บาท`));
+
+  /* โหลดชื่อ DRG + คำอธิบาย err/warn */
+  loadDrgName(r.drg);
+  if (errs.length) loadDesc('drg-error/' + errs[0], 'errTxt');
+  if (warns.length) {
+    const txt = $('warnTxt');
+    let acc = [];
+    warns.forEach((w, i) => {
+      loadDesc('drg-warning/' + w, null, (name) => {
+        acc[i] = name;
+        if (acc.filter(x => x).length === warns.length) txt.textContent = acc.join('; ');
+      });
+    });
+  }
+}
+function fmt(n) { return (n === null || n === undefined || n === '') ? '—' : (+n).toLocaleString('th-TH', { maximumFractionDigits: 4 }); }
+function fmtNum(n) { return (+n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }); }
+
+async function loadDrgName(drg) {
+  try {
+    let d;
+    try { d = await apiGet('libs/drg-name/' + drg); }
+    catch (e) { d = await serverLib('libs/drg-name/' + drg); }
+    const row = (d && d.rows && d.rows[0]);
+    if (row && $('drgNameRow')) $('drgNameRow').textContent = row.drgname || '';
+  } catch (e) { /* ข้ามไป */ }
+}
+async function loadDesc(path, elId, cb) {
+  try {
+    let d;
+    try { d = await apiGet(path); }
+    catch (e) { d = await serverLib(path); }
+    const row = (d && d.rows && d.rows[0]);
+    const name = row ? (row.name || row.name_th || '') : '';
+    if (elId && $(elId)) $(elId).textContent = name;
+    if (cb) cb(name);
+  } catch (e) { if (cb) cb(''); }
+}
+
+function friendlyError(e) {
+  const msg = String(e && (e.message || e) || '');
+  if (/abort|timeout/i.test(msg)) return 'การเชื่อมต่อใช้เวลานานเกินไป กรุณาตรวจสอบเครือข่ายแล้วลองใหม่';
+  if (/network|fetch|proxy/i.test(msg)) return 'เชื่อมต่อ CMI@MoPH ไม่สำเร็จ กรุณาใช้งานจากเครือข่ายในประเทศไทยหรือ VPN ของโรงพยาบาล';
+  if (/grouper|ผลลัพธ์/i.test(msg)) return 'Grouper ไม่ส่งผลลัพธ์กลับมา กรุณาตรวจสอบรหัสและลองใหม่';
+  return 'ตรวจสอบข้อมูลที่กรอก แล้วลองคำนวณอีกครั้ง';
+}
+function renderError(e) {
+  $('resultBody').innerHTML = `
+    <div class="alert err" style="margin-top:4px;">${IC.err} <span><b>ไม่สามารถคำนวณ DRG ได้</b><br>
+      ${esc(friendlyError(e))}<br><br>
+      หมายเหตุ: API ของ CMI@MoPH จำกัดการเข้าถึงเฉพาะเครือข่ายในประเทศไทย<br>
+      — ถ้าเปิดจากนอกเครือข่ายไทย กรุณาใช้ภายใน รพ. หรือ VPN ไทย</span></div>
+    <div class="empty" style="padding:30px 20px;"><div class="ico" aria-hidden="true">${IC.xlSearch}</div><h2>ลองอีกครั้ง</h2><p>ตรวจสอบข้อมูลแล้วกดคำนวณใหม่</p></div>`;
+}
+
+/* ================= HISTORY ================= */
+function saveHistory(pat, r) {
+  let h = [];
+  try { h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]'); } catch (e) {}
+  h.unshift({ ts: Date.now(), pdx: pat.pdx, drg: r.drg, rw: r.rw, adjrw: r.adjrw });
+  h = h.slice(0, 10);
+  try { localStorage.setItem('ktl_drg_hist', JSON.stringify(h)); } catch (e) {}
+  renderHistory();
+}
+function renderHistory() {
+  let h = [];
+  try { h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]'); } catch (e) {}
+  $('histBody').innerHTML = h.length ? h.map(x =>
+    `<div class="hist-item" data-pdx="${esc(x.pdx)}" role="button" tabindex="0" title="โหลด PDx ${esc(x.pdx)} กลับมา">
+       <span class="drg">${esc(x.drg)}</span>
+       <span>${esc(x.pdx)}</span>
+       <span class="rw">RW ${(+x.rw).toFixed(4)} · ADJRW ${(+x.adjrw).toFixed(4)}</span>
+       <span class="time">${new Date(x.ts).toLocaleTimeString('th-TH')}</span>
+     </div>`
+  ).join('') : '<div class="hint" style="text-align:center;">ยังไม่มีประวัติ</div>';
+  $('histBody').querySelectorAll('.hist-item').forEach(el => {
+    const activate = () => { $('pdx').value = el.dataset.pdx; toast('โหลด PDx: ' + el.dataset.pdx, 2500, 'ok'); };
+    el.addEventListener('click', activate);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
+  });
+}
+$('btnClearHist').addEventListener('click', () => {
+  try { localStorage.removeItem('ktl_drg_hist'); } catch (e) {}
+  renderHistory();
+  toast('ลบประวัติทั้งหมดแล้ว', 2500, 'ok');
+});
+
+/* ================= RESET ================= */
+$('btnReset').addEventListener('click', () => {
+  if (BUSY) return;
+  $('hcode').value = '10929';
+  $('age').value = 65; $('ageDay').value = 0; $('weight').value = 60;
+  $('losDay').value = 5; $('losHour').value = 0; $('baseRate').value = 3504;
+  $('pdx').value = '';
+  setSex(1);
+  SDX = []; PROC = [];
+  chipRow($('sdxChips'), SDX);
+  chipRow($('procChips'), PROC);
+  $('resultBody').innerHTML = emptyState();
+  $('pdx').classList.remove('invalid');
+  setPdxError(false);
+  setCaseStatus('ready', 'พร้อมคำนวณ', 'ฟอร์มถูกล้างแล้ว · กรอก PDx เพื่อเริ่มใหม่');
+  closePdxList();
+});
+
+/* ================= INIT ================= */
+(function restore() {
+  try {
+    const h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]');
+    if (h.length) $('pdx').value = h[0].pdx;
+  } catch (e) {}
+})();
+bindChips($('sdxChips'), SDX, 'sdx');
+bindChips($('procChips'), PROC, 'proc');
+chipRow($('sdxChips'), SDX);
+chipRow($('procChips'), PROC);
+loadDc();
+renderHistory();
+renderQuick();
+updatePdxReadiness();
+/* โฟกัส PDx อัตโนมัติเฉพาะจอที่มีเมาส์ (กันคีย์บอร์ดเด้งบนมือถือ) */
+if (window.matchMedia && window.matchMedia('(pointer:fine)').matches) {
+  $('pdx').focus();
+}
+</script>
+</body>
+</html>
