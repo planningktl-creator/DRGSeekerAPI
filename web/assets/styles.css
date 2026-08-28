@@ -553,17 +553,20 @@ footer b { color: var(--muted); font-weight: 600; }
   .seg button { min-height: 48px; }
   input[type=text], input[type=number], select, .chip-input { font-size: 16px; }
   .ac-item { min-height: 44px; }
+  /* มือถือเห็น: PDx, DRG, ADJRW, Δ, ผล — ซ่อน #, SDx, MDC, RW, WTLOS, OT
+     (คอลัมน์ "ผล" ต้องเห็นเสมอ จะได้รู้ว่าแบบไหน err/warn) */
   .perm-table th:nth-child(1), .perm-table td:nth-child(1),
+  .perm-table th:nth-child(3), .perm-table td:nth-child(3),
   .perm-table th:nth-child(5), .perm-table td:nth-child(5),
   .perm-table th:nth-child(6), .perm-table td:nth-child(6),
   .perm-table th:nth-child(9), .perm-table td:nth-child(9),
-  .perm-table th:nth-child(10), .perm-table td:nth-child(10),
-  .perm-table th:nth-child(11), .perm-table td:nth-child(11) { display: none; }
-  .perm-table.stream th:nth-child(8), .perm-table.stream td:nth-child(8) { display: none; }
+  .perm-table th:nth-child(10), .perm-table td:nth-child(10) { display: none; }
   .perm-table th, .perm-table td { font-size: 11px; padding: 7px 6px; }
   .brand h1 { font-size: 18px; }
   .drg-code { font-size: 38px; }
   .card { padding: 18px; }
+  /* badge ยาวเป็นแถวเดียวกับแบรนด์แล้วล้นจอ — ให้ลงมาแถวของตัวเอง */
+  .badge { order: 3; flex: 1 1 100%; white-space: normal; text-align: left; }
 }
 
 /* ---------- Reduced motion ---------- */

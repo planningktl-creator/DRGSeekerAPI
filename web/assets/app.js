@@ -656,9 +656,9 @@ $('btnPermute').addEventListener('click', async () => {
     await Promise.all(chunk.map(async (s, k) => {
       try {
         const d = await calcOne(buildPayload(s.pdx, s.sdx));
-        results[i + k] = { pdx: s.pdx, sdx: s.sdx, r: (d.data && d.data[0]) || {}, err: false };
+        results[i + k] = { idx: i + k, pdx: s.pdx, sdx: s.sdx, r: (d.data && d.data[0]) || {}, err: false };
       } catch (e) {
-        results[i + k] = { pdx: s.pdx, sdx: s.sdx, r: { drg: '—', err: -1, error: String(e.message || e) }, err: true };
+        results[i + k] = { idx: i + k, pdx: s.pdx, sdx: s.sdx, r: { drg: '—', err: -1, error: String(e.message || e) }, err: true };
       }
     }));
     chunk.forEach((s, k) => permAppendRow(i + k + 1, s, results[i + k].err ? null : results[i + k].r, results[i + k].err));
@@ -673,18 +673,19 @@ $('btnPermute').addEventListener('click', async () => {
 
 function renderPermuteStream(total, capped) {
   $('resultBody').innerHTML = `
-    <div class="alert ok" style="margin-bottom:4px;">${IC.repeat} <span>
+    <div class="alert ok" style="margin-bottom:4px;" id="permSummary">${IC.repeat} <span>
       กำลังทดสอบ <b id="permDone">0</b>/<b>${total}</b> แบบ${capped ? ' (จำกัดสูงสุด ' + MAX_SCENARIOS + ' แบบ)' : ''}
       · เหลือเวลาประมาณ <b id="permEta">${permEtaTxt(permEstimateSec(total))}</b>
     </span></div>
     <div class="prog"><i id="permBar"></i></div>
-    <div class="perm-status-line">
+    <div class="perm-status-line" id="permStatusLine">
       <span class="hint" id="permNow">กำลังส่งแบบที่ 1 ...</span>
       <button type="button" class="mini-btn" id="btnStopPerm">${IC.square} หยุด</button>
     </div>
+    <div class="rank-row" id="permRank" style="display:none;"></div>
     <div class="perm-wrap"><table class="perm-table stream" id="permTable">
-      <tr><th>#</th><th>PDx</th><th>SDx</th><th>DRG</th><th>MDC</th><th>RW</th><th>ADJRW</th><th>WTLOS</th><th>OT</th><th>ผล</th></tr>
-      <tr id="permEmpty"><td colspan="10" class="n" style="text-align:center;">กำลังรอผลแรก...</td></tr>
+      <tr><th>#</th><th>PDx</th><th>SDx</th><th>DRG</th><th>MDC</th><th>RW</th><th>ADJRW</th><th>ΔADJRW</th><th>WTLOS</th><th>OT</th><th>ผล</th></tr>
+      <tr id="permEmpty"><td colspan="11" class="n" style="text-align:center;">กำลังรอผลแรก...</td></tr>
     </table></div>`;
   const st = $('btnStopPerm');
   if (st) st.addEventListener('click', () => { STOP_PERMUTE = true; st.disabled = true; st.textContent = 'กำลังหยุด...'; });
@@ -705,6 +706,7 @@ function permAppendRow(i, s, r, isErr) {
   if (!tb) return;
   if (empty) empty.remove();
   const tr = document.createElement('tr');
+  tr.dataset.i = i - 1;
   tr.innerHTML = `
     <td class="n">${i}</td>
     <td><b>${esc(s.pdx)}</b></td>
@@ -713,6 +715,7 @@ function permAppendRow(i, s, r, isErr) {
     <td>${isErr ? '—' : esc(r.mdc || '—')}</td>
     <td>${isErr ? '—' : fmt(r.rw)}</td>
     <td>${isErr ? '—' : fmt(r.adjrw || 0)}</td>
+    <td class="delta">—</td>
     <td>${isErr ? '—' : fmt(r.wtlos)}</td>
     <td>${isErr ? '—' : (r.ot ?? '—')}</td>
     <td>${isErr ? '<span class="gain-dn">ERR</span>' : (r.err > 0 ? `<span class="gain-dn">err=${r.err}</span>` : (r.warn > 0 ? `<span style="color:var(--warn)">warn=${r.warn}</span>` : IC.check))}</td>`;
@@ -747,50 +750,71 @@ function renderPermute(results, currentPdx, elapsedMs, capped, stopped, baseline
         `<span class="rank-item ${i === 0 ? 'rank-top' : ''}">${i + 1}. <b>${esc(p)}</b> · ADJRW ${fmt(a)}</span>`).join('') + '</div>'
     : '';
 
-  let html = `
-    <div class="alert ok" style="margin-bottom:4px;">${IC.repeat} <span>ทดสอบ <b>${results.length}</b> แบบ (สลับ SDx→PDx ทุกชุด ${SDX_GROUP} ตัว) · ใช้เวลา ${(elapsedMs / 1000).toFixed(1)} วินาที${note}
+  /* ---- สรุป + อันดับ (แก้ innerHTML เฉพาะก้อน ไม่แตะตาราง) ---- */
+  const sum = $('permSummary');
+  if (sum) sum.innerHTML = `${IC.repeat} <span>ทดสอบ <b>${results.length}</b> แบบ (สลับ SDx→PDx ทุกชุด ${SDX_GROUP} ตัว) · ใช้เวลา ${(elapsedMs / 1000).toFixed(1)} วินาที${note}
     · ฐานเทียบ Δ = เคสตามที่กรอก (ADJRW ${curAdj !== null ? fmt(curAdj) : '—'})
-    ${bestPdx ? ` · <b>แนะนำ PDx = ${esc(bestPdx)}</b> (ADJRW สูงสุด)` : ''}</span></div>
-    ${rankHtml}
-    <div class="perm-wrap"><table class="perm-table">
-      <tr><th>#</th><th>PDx</th><th>SDx</th><th>DRG</th><th>MDC</th><th>RW</th><th>ADJRW</th><th>ΔADJRW</th><th>WTLOS</th><th>OT</th><th>ผล</th></tr>`;
+    ${bestPdx ? ` · <b>แนะนำ PDx = ${esc(bestPdx)}</b> (ADJRW สูงสุด)` : ''}</span>`;
+  const rankEl = $('permRank');
+  if (rankEl) {
+    if (rankHtml) { rankEl.innerHTML = rankHtml; rankEl.style.display = ''; }
+    else rankEl.style.display = 'none';
+  }
+  const stl = $('permStatusLine');
+  if (stl) stl.remove();
 
-  sorted.forEach((s, i) => {
-    const isCur = s.pdx === currentPdx;
-    const isBest = !s.err && bestPdx && s.pdx === bestPdx;
-    const adj = s.err ? null : (s.r.adjrw || 0);
-    let delta = '—';
-    if (adj !== null && curAdj !== null) {
-      const d = adj - curAdj;
-      delta = `<span class="${d >= 0 ? 'gain-up' : 'gain-dn'}">${d >= 0 ? '+' : ''}${d.toFixed(4)}</span>`;
+  /* ---- ตาราง: patch แถวที่ stream ไว้แล้ว แทนการ rebuild ทั้งก้อน
+     (rebuild 600 แถวใน innerHTML ครั้งเดียวทำ layout ค้าง + เสีย scroll) ---- */
+  let tb = $('permTable');
+  if (!tb) { renderPermuteStream(results.length, capped); tb = $('permTable'); }
+  if (tb) {
+    results.forEach(s => {
+      const tr = tb.querySelector('tr[data-i="' + s.idx + '"]');
+      if (!tr) return;
+      const isCur = s.pdx === currentPdx;
+      const isBest = !s.err && bestPdx && s.pdx === bestPdx;
+      const adj = s.err ? null : (s.r.adjrw || 0);
+      const tdDelta = tr.cells[7];
+      if (tdDelta) {
+        if (adj !== null && curAdj !== null) {
+          const d = adj - curAdj;
+          tdDelta.innerHTML = `<span class="${d >= 0 ? 'gain-up' : 'gain-dn'}">${d >= 0 ? '+' : ''}${d.toFixed(4)}</span>`;
+        } else tdDelta.textContent = '—';
+      }
+      const tags = [];
+      if (isBest) tags.push('<span class="tag best">ดีที่สุด</span>');
+      if (isCur) tags.push('<span class="tag cur">ปัจจุบัน</span>');
+      if (tags.length && tr.cells[1]) tr.cells[1].insertAdjacentHTML('beforeend', ' ' + tags.join(' '));
+      tr.className = (isBest ? 'best ' : '') + (isCur ? 'current' : '');
+    });
+    sorted.forEach((s, i) => {
+      const tr = tb.querySelector('tr[data-i="' + s.idx + '"]');
+      if (!tr) return;
+      if (tr.cells[0]) tr.cells[0].textContent = i + 1;
+      tb.appendChild(tr); /* appendChild ย้าย node ที่มีอยู่ → เรียงใหม่โดยไม่ re-parse */
+    });
+    /* แถว baseline (เคสตามที่กรอกจริง) ไว้บนสุดถัดจากหัวตาราง */
+    if (baselineRes) {
+      const statusTxt = baselineRes.err > 0 ? `<span class="gain-dn">err=${baselineRes.err}</span>`
+        : baselineRes.warn > 0 ? `<span style="color:var(--warn)">warn=${baselineRes.warn}</span>` : IC.check;
+      const tr = document.createElement('tr');
+      tr.className = 'current';
+      tr.innerHTML = `
+        <td class="n">—</td>
+        <td><b>${esc(currentPdx)}</b> <span class="tag cur">ปัจจุบัน (ตามที่กรอก)</span></td>
+        <td class="n">${esc(SDX.join(', ')) || '—'}</td>
+        <td class="drg">${esc(baselineRes.drg || '—')}</td>
+        <td>${esc(baselineRes.mdc || '—')}</td>
+        <td>${fmt(baselineRes.rw)}</td>
+        <td>${fmt(baselineRes.adjrw)}</td>
+        <td class="delta">±0.0000</td>
+        <td>${fmt(baselineRes.wtlos)}</td>
+        <td>${baselineRes.ot ?? '—'}</td>
+        <td>${statusTxt}</td>`;
+      const head = tb.querySelector('tr');
+      if (head) tb.insertBefore(tr, head.nextSibling);
     }
-    const tags = [];
-    if (isBest) tags.push('<span class="tag best">ดีที่สุด</span>');
-    if (isCur) tags.push('<span class="tag cur">ปัจจุบัน</span>');
-    let statusTxt;
-    if (s.err) statusTxt = '<span class="gain-dn">ERR</span>';
-    else if (s.r.err > 0) statusTxt = `<span class="gain-dn">err=${s.r.err}</span>`;
-    else if (s.r.warn > 0) statusTxt = `<span style="color:var(--warn)">warn=${s.r.warn}</span>`;
-    else statusTxt = IC.check;
-    html += `
-      <tr class="${(isBest ? 'best ' : '') + (isCur ? 'current' : '')}">
-        <td class="n">${i + 1}</td>
-        <td><b>${esc(s.pdx)}</b>${tags.join(' ')}</td>
-        <td class="n">${esc(s.sdx.join(', ')) || '—'}</td>
-        <td class="drg">${s.err ? '—' : esc(s.r.drg)}</td>
-        <td>${s.err ? '—' : esc(s.r.mdc || '—')}</td>
-        <td>${s.err ? '—' : fmt(s.r.rw)}</td>
-        <td>${s.err ? '—' : fmt(adj)}</td>
-        <td>${delta}</td>
-        <td>${s.err ? '—' : fmt(s.r.wtlos)}</td>
-        <td>${s.err ? '—' : (s.r.ot ?? '—')}</td>
-        <td>${statusTxt}</td>
-      </tr>`;
-  });
-
-  html += `</table></div>
-    <div class="hint" style="margin-top:8px;">แต่ละแบบใช้ Grouper ทางการ ~1.4 วินาที · ถ้า SDx เกิน ${SDX_GROUP} รหัส จะทดสอบทุกชุด ${SDX_GROUP} ตัว เพื่อให้เห็น RW ทุกรูปแบบ</div>`;
-  $('resultBody').innerHTML = html;
+  }
   scrollToEl($('resultCard'));
   if (stopped) toast('หยุดการทดสอบแล้ว — แสดงผลที่มีอยู่', 3500, 'warn');
   else toast('ทดสอบเสร็จสิ้น · ' + results.length + ' แบบ', 3000, 'ok');
