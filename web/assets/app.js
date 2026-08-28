@@ -25,7 +25,6 @@ let BUSY = false;
 /* ================= ICONS ================= */
 const S = ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 const IC = {
-  search:   '<svg class="ic"' + S + '><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
   repeat:   '<svg class="ic"' + S + '><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
   check:    '<svg class="ic"' + S + '><path d="M20 6 9 17l-5-5"/></svg>',
   checkC:   '<svg class="ic"' + S + '><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
@@ -171,7 +170,12 @@ function updatePdxReadiness() {
   }
 }
 function openPdxList() { pdxList.classList.add('open'); pdxInput.setAttribute('aria-expanded', 'true'); }
-function closePdxList() { pdxList.classList.remove('open'); pdxInput.setAttribute('aria-expanded', 'false'); pdAcIndex = -1; }
+function closePdxList() {
+  pdxList.classList.remove('open');
+  pdxInput.setAttribute('aria-expanded', 'false');
+  pdxInput.removeAttribute('aria-activedescendant');
+  pdAcIndex = -1;
+}
 function renderPdxAc(rows) {
   if (!rows.length) {
     pdxList.innerHTML = '<div class="ac-empty">ไม่พบรหัส ICD-10 ที่ตรงกัน</div>';
@@ -193,6 +197,7 @@ pdxInput.addEventListener('input', function () {
   const q = this.value.trim();
   updatePdxReadiness();
   pdAcIndex = -1;
+  pdxInput.removeAttribute('aria-activedescendant');
   clearTimeout(pdAcTimer);
   syncSdxVsPdx();
   if (!q) { closePdxList(); pdxList.innerHTML = ''; return; }
@@ -244,6 +249,11 @@ function focusChip(container) {
 function bindChips(container, arr, kind) {
   container._arr = arr;
   container._kind = kind;
+  /* กัน blur ชนะ click: mousedown บนรายการแนะนำจะ preventDefault
+     เพื่อไม่ให้ focus หลุดจากช่องพิมพ์ ก่อน click ไปถึง .ac-item */
+  container.addEventListener('mousedown', e => {
+    if (e.target.closest('.ac-item')) e.preventDefault();
+  });
   container.addEventListener('click', e => {
     const item = e.target.closest('.ac-item');
     if (item) { pickProcAc(item, container); return; }
@@ -281,9 +291,20 @@ function chipRow(container, arr) {
   container._arr = arr;
   const kind = container._kind;
   const label = kind === 'proc' ? 'เพิ่มรหัสหัตถการ' : 'เพิ่มรหัสวินิจฉัย';
+  const isProc = kind === 'proc';
   container.innerHTML = arr.map(c =>
     `<span class="chip">${esc(c)}<button type="button" class="chip-x" data-c="${esc(c)}" aria-label="ลบ ${esc(c)}" title="ลบ ${esc(c)}">${IC.x}</button></span>`
-  ).join('') + `<input type="text" class="chip-input" aria-label="${label}" autocomplete="off">`;
+  ).join('') + `<input type="text" class="chip-input" aria-label="${label}" autocomplete="off"${isProc
+    ? ' role="combobox" aria-expanded="false" aria-controls="procAc" aria-autocomplete="list"'
+    : ''}>`;
+  if (isProc) {
+    const list = document.createElement('div');
+    list.className = 'ac-list';
+    list.id = 'procAc';
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', 'ผลการค้นหาหัตถการ ICD-9-CM');
+    container.appendChild(list);
+  }
   const inp = container.querySelector('.chip-input');
   inp.addEventListener('input', () => { if (kind === 'proc') procAcSearch(inp, container); });
   inp.addEventListener('keydown', e => {
@@ -294,7 +315,14 @@ function chipRow(container, arr) {
       if (!items.length) return;
       e.preventDefault();
       procAcIndex = e.key === 'ArrowDown' ? Math.min(procAcIndex + 1, items.length - 1) : Math.max(procAcIndex - 1, 0);
-      items.forEach((it, i) => it.classList.toggle('sel', i === procAcIndex));
+      items.forEach((it, i) => {
+        const sel = i === procAcIndex;
+        it.classList.toggle('sel', sel);
+        it.setAttribute('aria-selected', sel ? 'true' : 'false');
+        it.id = 'procAc-' + i;
+      });
+      inp.setAttribute('aria-activedescendant', 'procAc-' + procAcIndex);
+      if (items[procAcIndex]) items[procAcIndex].scrollIntoView({ block: 'nearest' });
       return;
     }
     if (e.key === 'Escape') { closeProcAc(container); inp.blur(); return; }
@@ -315,7 +343,10 @@ function chipRow(container, arr) {
     addCodes(container, arr, codes);
     focusChip(container);
   });
-  inp.addEventListener('blur', () => {
+  inp.addEventListener('blur', e => {
+    /* ถ้า focus กำลังจะไปที่รายการแนะนำ อย่า commit ข้อความค้างในช่อง
+       — ปล่อยให้ click handler จัดการเลือกรายการแทน */
+    if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.ac-item')) return;
     closeProcAc(container);
     const codes = parseCodes(inp.value);
     if (!codes.length) return;
@@ -325,12 +356,13 @@ function chipRow(container, arr) {
 }
 
 /* ===== Proc autocomplete (ICD-9-CM /libs/icd-cm) ===== */
-let procAcTimer = null, procAcIndex = -1, procAcRows = [];
+let procAcTimer = null, procAcIndex = -1;
 function closeProcAc(container) {
   const l = container.querySelector('.ac-list');
   if (l) l.classList.remove('open');
+  const inp = container.querySelector('.chip-input');
+  if (inp) inp.setAttribute('aria-expanded', 'false');
   procAcIndex = -1;
-  procAcRows = [];
 }
 function pickProcAc(item, container) {
   addCodes(container, container._arr, [item.dataset.code]);
@@ -344,29 +376,24 @@ function procAcSearch(inp, container) {
   if (!q) { closeProcAc(container); return; }
   procAcTimer = setTimeout(async () => {
     if (document.activeElement !== inp) return;
+    const list = container.querySelector('.ac-list');
+    if (!list) return;
     let rows = [];
     try {
       const d = await apiGet('libs/icd-cm/' + encodeURIComponent(q));
       rows = (d && d.rows) || [];
     } catch (e) { rows = []; }
-    let list = container.querySelector('.ac-list');
-    if (!list) {
-      list = document.createElement('div');
-      list.className = 'ac-list';
-      list.setAttribute('role', 'listbox');
-      list.setAttribute('aria-label', 'ผลการค้นหาหัตถการ ICD-9-CM');
-      container.appendChild(list);
-    }
     if (!rows.length) {
       list.innerHTML = '<div class="ac-empty">ไม่พบรหัสหัตถการที่ตรงกัน</div>';
       list.classList.add('open');
+      inp.setAttribute('aria-expanded', 'true');
       return;
     }
-    procAcRows = rows;
     list.innerHTML = rows.map(r =>
       `<div class="ac-item" data-code="${esc(r.icd)}" role="option"><span class="c">${esc(r.icd)}</span><span class="d">${esc(r.procedname || '')}</span></div>`
     ).join('');
     list.classList.add('open');
+    inp.setAttribute('aria-expanded', 'true');
   }, 300);
 }
 
