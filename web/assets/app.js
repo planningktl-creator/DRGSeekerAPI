@@ -926,7 +926,10 @@ function renderResult(r, tgrp) {
     warns.forEach((w, i) => {
       loadDesc('drg-warning/' + w, null, (name) => {
         acc[i] = name;
-        if (acc.filter(x => x).length === warns.length) txt.textContent = acc.join('; ');
+        /* นับที่ "เสร็จแล้ว" (รวมชื่อว่าง) ไม่ใช่นับชื่อที่มี — ไม่งั้นพอบาง bit
+           ไม่มีคำอธิบาย warnTxt จะค้าง "กำลังโหลด..." ตลอดไป */
+        if (acc.filter(x => x !== undefined).length === warns.length)
+          txt.textContent = acc.filter(Boolean).join('; ') || '—';
       });
     });
   }
