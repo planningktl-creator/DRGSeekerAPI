@@ -1,0 +1,12 @@
+{
+  "name": "ktl-drg-seeker",
+  "version": "3.0.0",
+  "description": "KTL CMI DRG Seeker — static web app for DRG calculation (CMI@MoPH)",
+  "main": "index.html",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve . -l 8080"
+  },
+  "keywords": ["drg", "cmi", "moph", "thailand", "healthcare", "grouper"],
+  "license": "MIT"
+}
