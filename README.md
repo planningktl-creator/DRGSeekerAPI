@@ -20,7 +20,8 @@ Web App บน **Google Apps Script (GAS)** สำหรับบุคลาก
 - **ค้นหา ICD-10 / ICD-9-CM** — อัตโนมัติจาก API libs พร้อมคำอธิบาย WHO
 - **ชื่อ DRG / Error / Warning** — ใช้ `/libs/drg-name`, `/libs/drg-error`, `/libs/drg-warning`
 - **ทดสอบหลายชุด SDx** — ถ้า SDx เกิน 12 ตัว จะทดสอบทุกชุดเพื่อดู RW ทุกรูปแบบ
-- **ประวัติการคำนวณ** — เก็บใน `localStorage`
+- **ประวัติการคำนวณ** — เก็บใน `localStorage` (โหลดเคสกลับทั้ง PDx/SDx/Proc)
+- **สลับธีม** — สว่าง/เข้ม เก็บค่าใน `localStorage`
 - **การ์ดลัด (Quick)** — ชุดค่าตัวอย่างกดใช้เร็ว
 - **Proxy fallback** — ถ้า client fetch ติด CORS/geo จะส่งผ่าน GAS server (`UrlFetchApp`)
 

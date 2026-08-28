@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="light dark">
   <meta name="description" content="เครื่องมือคำนวณ DRG ออนไลน์ รพ.กันทรลักษ์ — ใช้ Grouper ทางการ CMI@MoPH (TGrp6305 v6.3.5)">
   <title>KTL CMI DRG Seeker</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2314b8a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-4l-3 9L9 3l-3 9H2'/%3E%3C/svg%3E">
@@ -591,6 +591,103 @@
         scroll-behavior: auto !important;
       }
     }
+
+    /* ============================================================
+       Theme: Dark (ธีมเข้มแบรนด์เดิม) — บังคับผ่าน body[data-theme="dark"]
+       Base theme = light (Clinical Light) ด้านบน
+       เปิด/ปิดผ่านปุ่มธีมใน header + localStorage ดูส่วน JS สลัดธีม
+       ============================================================ */
+    body[data-theme="dark"] {
+      color-scheme: dark;
+      background-color: var(--bg1);
+      background-image:
+        radial-gradient(900px 500px at 85% -10%, rgba(20,184,166,.16), transparent 60%),
+        radial-gradient(700px 420px at -10% 30%, rgba(34,211,238,.10), transparent 55%),
+        radial-gradient(800px 500px at 50% 110%, rgba(217,119,6,.10), transparent 60%),
+        linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+      /* override CSS custom properties ที่ :root สำหรับธีมเข้ม (cascade ไปลูกหลาน) */
+      --bg1: #041f1f; --bg2: #0a3535; --card: rgba(9,42,42,.92);
+      --card-border: rgba(255,255,255,.12);
+      --teal: #14b8a6; --cyan: #22d3ee; --teal-deep: #0891b2;
+      --amber: #f59e0b; --amber2: #d97706;
+      --txt: #e8f6f5; --muted: #9dbdbd; --hint: #7fa8a5;
+      --ok: #34d399; --err: #f87171; --warn: #fbbf24; --focus: #22d3ee;
+      --btn-1a: #0b6b62; --btn-1b: #0e4d47; --btn-2a: #b45309; --btn-2b: #92400e;
+    }
+    body[data-theme="dark"] input[type=text], body[data-theme="dark"] input[type=number], body[data-theme="dark"] select {
+      background: rgba(0,0,0,.28); border-color: rgba(255,255,255,.13); color: var(--txt);
+    }
+    body[data-theme="dark"] input::placeholder, body[data-theme="dark"] .chip-input::placeholder { color: #6f9a97; }
+    body[data-theme="dark"] select option { background: #0a3535; color: var(--txt); }
+    body[data-theme="dark"] .seg, body[data-theme="dark"] .chips, body[data-theme="dark"] .advanced-fields {
+      background: rgba(0,0,0,.28); border-color: rgba(255,255,255,.13);
+    }
+    body[data-theme="dark"] .seg button { color: var(--muted); }
+    body[data-theme="dark"] .seg button.on { color: #fff; }
+    body[data-theme="dark"] .ac-list { background: #0b3535; border-color: rgba(20,184,166,.35); box-shadow: none; }
+    body[data-theme="dark"] .ac-item { border-bottom-color: rgba(255,255,255,.06); }
+    body[data-theme="dark"] .ac-item:hover, body[data-theme="dark"] .ac-item.sel { background: rgba(20,184,166,.18); }
+    body[data-theme="dark"] .ac-item .d { color: var(--muted); }
+    body[data-theme="dark"] .btn-primary, body[data-theme="dark"] .btn-secondary { box-shadow: 0 10px 26px rgba(0,0,0,.35); }
+    body[data-theme="dark"] .btn-ghost, body[data-theme="dark"] .mini-btn {
+      background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.14); color: var(--muted);
+    }
+    body[data-theme="dark"] .btn-ghost:hover:not(:disabled), body[data-theme="dark"] .mini-btn:hover { color: var(--txt); }
+    body[data-theme="dark"] .mini-btn:hover { color: var(--err); background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.45); }
+    body[data-theme="dark"] .drg-hero { background: linear-gradient(135deg, rgba(8,145,178,.16), rgba(20,184,166,.05)); border-color: rgba(20,184,166,.35); }
+    body[data-theme="dark"] .drg-hero::before { background: radial-gradient(circle, rgba(34,211,238,.18), transparent 65%); }
+    body[data-theme="dark"] .drg-code { color: var(--cyan); }
+    body[data-theme="dark"] .mdc-badge { color: var(--amber); background: rgba(245,158,11,.13); border-color: rgba(245,158,11,.4); }
+    body[data-theme="dark"] .stat, body[data-theme="dark"] .rank-item, body[data-theme="dark"] .hist-item {
+      background: rgba(0,0,0,.26); border-color: rgba(255,255,255,.09);
+    }
+    body[data-theme="dark"] .stat .v { color: var(--txt); }
+    body[data-theme="dark"] .stat .v.amber { color: var(--amber); }
+    body[data-theme="dark"] .alert.ok { background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.4); color: #6ee7b7; }
+    body[data-theme="dark"] .alert.warn { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.4); color: #fcd34d; }
+    body[data-theme="dark"] .alert.err { background: rgba(248,113,113,.10); border-color: rgba(248,113,113,.4); color: #fca5a5; }
+    body[data-theme="dark"] .perm-wrap { border-color: rgba(255,255,255,.08); }
+    body[data-theme="dark"] .perm-table th { background: #0d3d3d; border-bottom-color: rgba(255,255,255,.15); }
+    body[data-theme="dark"] .perm-table td { border-bottom-color: rgba(255,255,255,.06); }
+    body[data-theme="dark"] .perm-table tr:hover td { background: rgba(255,255,255,.03); }
+    body[data-theme="dark"] .perm-table tr.best td { background: rgba(20,184,166,.13); }
+    body[data-theme="dark"] .perm-table tr.current td { background: rgba(245,158,11,.10); }
+    body[data-theme="dark"] .perm-table tr.best.current td { background: rgba(20,184,166,.20); }
+    body[data-theme="dark"] #loader { background: rgba(4,31,31,.96); }
+    body[data-theme="dark"] .toast { background: #0d3d3d; border-color: rgba(248,113,113,.5); color: #fca5a5; box-shadow: none; }
+    body[data-theme="dark"] .toast.ok { border-color: rgba(52,211,153,.5); color: #6ee7b7; }
+    body[data-theme="dark"] .toast.warn { border-color: rgba(251,191,36,.5); color: #fcd34d; }
+    body[data-theme="dark"] footer { color: var(--hint); }
+    body[data-theme="dark"] .mobile-bar { background: rgba(6,35,35,.98); border-top-color: rgba(255,255,255,.1); box-shadow: 0 -10px 30px rgba(0,0,0,.35); }
+    body[data-theme="dark"] .brand h1 { color: var(--txt); }
+    body[data-theme="dark"] header, body[data-theme="dark"] .card { box-shadow: none; }
+    body[data-theme="dark"] .logo { box-shadow: 0 8px 22px rgba(0,0,0,.32); }
+    body[data-theme="dark"] .card-title .line { background: linear-gradient(90deg, rgba(34,211,238,.4), transparent); }
+    body[data-theme="dark"] .case-strip { box-shadow: inset 3px 0 0 var(--teal); }
+    body[data-theme="dark"] .case-strip[data-state="success"] { box-shadow: inset 3px 0 0 var(--ok); }
+    body[data-theme="dark"] .case-strip[data-state="working"] { box-shadow: inset 3px 0 0 var(--amber); }
+    body[data-theme="dark"] .case-strip[data-state="error"] { box-shadow: inset 3px 0 0 var(--err); }
+    body[data-theme="dark"] .drg-hero { box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+    body[data-theme="dark"] input:focus, body[data-theme="dark"] select:focus, body[data-theme="dark"] .chips:focus-within { box-shadow: 0 0 0 3px rgba(20,184,166,.18); }
+    body[data-theme="dark"] input.invalid { box-shadow: 0 0 0 3px rgba(248,113,113,.18); }
+
+    /* ===== Theme toggle button (สวิตช์ธีม) ===== */
+    .theme-btn {
+      flex: 0 0 auto; min-height: 40px; padding: 8px 14px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--font-body); font-size: 13px; font-weight: 600;
+      color: var(--muted); background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
+      transition: color .2s, border-color .2s, background .2s;
+      touch-action: manipulation;
+    }
+    body[data-theme="dark"] .theme-btn { background: rgba(255,255,255,.07); color: var(--muted); border-color: rgba(255,255,255,.16); }
+    .theme-btn:hover { color: var(--txt); border-color: rgba(8,127,120,.4); background: rgba(8,127,120,.08); }
+    .theme-btn .theme-ic { width: 16px; height: 16px; flex: 0 0 auto; }
+    @media (max-width: 640px) {
+      .theme-btn { min-height: 34px; padding: 6px 11px; font-size: 12px; }
+      .theme-btn .theme-lbl { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -606,6 +703,10 @@
       </div>
     </div>
     <span class="badge"><span class="dot" aria-hidden="true"></span>Grouper ทางการ CMI@MoPH · TGrp6305 v6.3.5</span>
+    <button type="button" class="theme-btn" id="btnTheme" title="สลับธีม สว่าง/เข้ม" aria-pressed="false">
+      <svg class="theme-ic" id="themeIc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      <span class="theme-lbl" id="themeLbl">ธีมสว่าง</span>
+    </button>
   </header>
 
   <div class="grid">
@@ -881,6 +982,7 @@ async function loadDc() {
   } catch (e) {
     $('dcStatus').innerHTML = '<option value="11">ใช้ค่าเริ่มต้น (11)</option>';
     $('dcStatus').value = '11';
+    toast('โหลดรายการ D/C Status ไม่สำเร็จ — ใช้ค่าเริ่มต้น (11)', 3500, 'warn');
   }
 }
 
@@ -1123,15 +1225,16 @@ function bindQuick(row, arr, chipsId) {
       }
       if (!arr.includes(c)) { arr.push(c); chipRow($(chipsId), arr); }
       b.classList.add('added');
+      b.setAttribute('aria-pressed', 'true');
       setTimeout(() => b.classList.remove('added'), 600);
     });
   });
 }
 function renderQuick() {
   $('sdxQuick').innerHTML = '<span class="qlbl">พบบ่อย:</span>' + COMMON_DX.map(([c, label]) =>
-    `<button type="button" class="qchip" data-code="${c}" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
+    `<button type="button" class="qchip" data-code="${c}" aria-pressed="false" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
   $('procQuick').innerHTML = '<span class="qlbl">พบบ่อย:</span>' + COMMON_PROC.map(([c, label]) =>
-    `<button type="button" class="qchip" data-code="${c}" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
+    `<button type="button" class="qchip" data-code="${c}" aria-pressed="false" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
   bindQuick($('sdxQuick'), SDX, 'sdxChips');
   bindQuick($('procQuick'), PROC, 'procChips');
   renderRecent();
@@ -1208,17 +1311,24 @@ $('sexSeg').addEventListener('keydown', e => {
 /* ================= PAYLOAD BUILDER ================= */
 function buildPayload(pdx, sdx) {
   const dcCode = $('dcStatus').value || '11';
+  const hcode = clean($('hcode').value) || '10929';
+  const age = clampNum($('age').value, 0, 120, 0);
+  const ageDay = clampNum($('ageDay').value, 0, 364, 0);
+  const weight = clampNum($('weight').value, 0, 300, 0);
+  const losDay = clampNum($('losDay').value, 0, 9999, 0);
+  const losHour = clampNum($('losHour').value, 0, 23, 0);
+  const baseRate = clampNum($('baseRate').value, 0, 1e7, 3504);
   return {
     version: '6',
     data: [{
-      hcode: ($('hcode').value.trim() || '10929'),
+      hcode: hcode,
       hn: '', an: '1',
       sex: SEX,
-      age: +($('age').value || 0),
-      age_day: +($('ageDay').value || 0),
-      los_day: +($('losDay').value || 0),
-      los_hour: +($('losHour').value || 0),
-      weight: +($('weight').value || 0),
+      age: age,
+      age_day: ageDay,
+      los_day: losDay,
+      los_hour: losHour,
+      weight: weight,
       dischs: dcCode.charAt(0),
       discht: dcCode.charAt(1) || '1',
       pdx: pdx,
@@ -1226,6 +1336,11 @@ function buildPayload(pdx, sdx) {
       proc: PROC.slice(0, 20)
     }]
   };
+}
+function clampNum(v, min, max, def) {
+  const n = +v;
+  if (isNaN(n)) return def;
+  return Math.min(max, Math.max(min, n));
 }
 async function calcOne(payload) {
   let d;
@@ -1318,6 +1433,12 @@ $('btnPermute').addEventListener('click', async () => {
   if (codes.length > 30) { toast('รหัสเยอะเกินไป (สูงสุด 30) — ลด SDx ก่อน', 3500, 'warn'); return; }
 
   const { scenarios, capped } = buildScenarios(codes, pdx);
+  /* ยืนยันก่อนรันแบบยาว (กัน accidental long run) */
+  if (scenarios.length > 60 && !window.confirm(
+    'จะทดสอบ ' + scenarios.length + ' ทางเลือก (สลับ SDx→PDx)\n' +
+    'ประมาณ ' + Math.ceil(scenarios.length * 1.4 / 60) + ' นาที\n\n' +
+    'แน่ใจว่าจะเปรียบเทียบทั้งหมด?\n(กด OK เพื่อดำเนินต่อ / Cancel เพื่อยกเลิก)'
+  )) { return; }
   const t0 = Date.now();
   STOP_PERMUTE = false;
 
@@ -1468,9 +1589,15 @@ function renderPermute(results, currentPdx, elapsedMs, capped, stopped) {
 }
 
 /* ================= RENDER ================= */
+/* cache ชื่อ DRG/error/warning + รายการ ICD ที่โหลดแล้ว (ลด request ซ้ำในสายงานที่ใช้รหัสซ้ำบ่อย) */
+let libCache = {};
+function cacheGet(key) { try { return libCache[key] != null ? libCache[key] : localStorage.getItem('ktl_lib_' + key); } catch (e) { return libCache[key]; } }
+function cacheSet(key, val) { libCache[key] = val; try { localStorage.setItem('ktl_lib_' + key, val); } catch (e) {} }
+
 function renderResult(r, tgrp) {
-  const baseRate = +($('baseRate').value || 3504);
+  const baseRate = clampNum($('baseRate').value, 0, 1e7, 3504);
   const pay = (r.adjrw || 0) * baseRate;
+  const losShow = (r.los != null && r.los !== '') ? r.los : ((+r.los_day || 0) + (+r.los_hour || 0) / 24);
   const errs = [], warns = [];
   if (r.err > 0) errs.push(r.err);
   if (r.warn > 0) { for (let b = 0; b <= 15; b++) { if (r.warn & (1 << b)) warns.push(1 << b); } }
@@ -1488,7 +1615,7 @@ function renderResult(r, tgrp) {
       <div class="stat"><div class="k">ADJRW</div><div class="v amber">${fmt(r.adjrw)}</div></div>
       <div class="stat"><div class="k">WTLOS</div><div class="v">${fmt(r.wtlos)}</div></div>
       <div class="stat"><div class="k">OT</div><div class="v">${r.ot ?? '—'}</div></div>
-      <div class="stat"><div class="k">LOS</div><div class="v">${r.los ?? '—'}</div></div>
+      <div class="stat"><div class="k">LOS</div><div class="v">${fmt(losShow)}</div></div>
     </div>
     <div class="alert ok" style="margin-top:14px;">
       ${IC.money} <span>ประมาณการค่าใช้จ่าย (ADJRW × Base Rate ${fmtNum(baseRate)}): <b style="margin-left:auto;">${fmtNum(pay)} บาท</b></span>
@@ -1531,21 +1658,33 @@ function fmt(n) { return (n === null || n === undefined || n === '') ? '—' : (
 function fmtNum(n) { return (+n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }); }
 
 async function loadDrgName(drg) {
+  const cached = cacheGet('drg_' + drg);
+  if (cached) { if ($('drgNameRow')) $('drgNameRow').textContent = cached; return; }
   try {
     let d;
     try { d = await apiGet('libs/drg-name/' + drg); }
     catch (e) { d = await serverLib('libs/drg-name/' + drg); }
     const row = (d && d.rows && d.rows[0]);
-    if (row && $('drgNameRow')) $('drgNameRow').textContent = row.drgname || '';
+    const name = (row && row.drgname) || '';
+    if (name) cacheSet('drg_' + drg, name);
+    if ($('drgNameRow')) $('drgNameRow').textContent = name || '';
   } catch (e) { /* ข้ามไป */ }
 }
 async function loadDesc(path, elId, cb) {
+  const key = path.replace(/[^A-Za-z0-9]/g, '_');
+  const cached = cacheGet(key);
+  if (cached) {
+    if (elId && $(elId)) $(elId).textContent = cached;
+    if (cb) cb(cached);
+    return;
+  }
   try {
     let d;
     try { d = await apiGet(path); }
     catch (e) { d = await serverLib(path); }
     const row = (d && d.rows && d.rows[0]);
     const name = row ? (row.name || row.name_th || '') : '';
+    if (name) cacheSet(key, name);
     if (elId && $(elId)) $(elId).textContent = name;
     if (cb) cb(name);
   } catch (e) { if (cb) cb(''); }
@@ -1571,7 +1710,7 @@ function renderError(e) {
 function saveHistory(pat, r) {
   let h = [];
   try { h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]'); } catch (e) {}
-  h.unshift({ ts: Date.now(), pdx: pat.pdx, drg: r.drg, rw: r.rw, adjrw: r.adjrw });
+  h.unshift({ ts: Date.now(), pdx: pat.pdx, drg: r.drg, rw: r.rw, adjrw: r.adjrw, sdx: pat.sdx || [], proc: pat.proc || [] });
   h = h.slice(0, 10);
   try { localStorage.setItem('ktl_drg_hist', JSON.stringify(h)); } catch (e) {}
   renderHistory();
@@ -1579,16 +1718,26 @@ function saveHistory(pat, r) {
 function renderHistory() {
   let h = [];
   try { h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]'); } catch (e) {}
-  $('histBody').innerHTML = h.length ? h.map(x =>
-    `<div class="hist-item" data-pdx="${esc(x.pdx)}" role="button" tabindex="0" title="โหลด PDx ${esc(x.pdx)} กลับมา">
+  $('histBody').innerHTML = h.length ? h.map((x, i) =>
+    `<div class="hist-item" data-idx="${i}" role="button" tabindex="0" title="โหลดเคส ${esc(x.pdx)} กลับมาทั้งหมด">
        <span class="drg">${esc(x.drg)}</span>
-       <span>${esc(x.pdx)}</span>
+       <span>${esc(x.pdx)}${(x.sdx && x.sdx.length) ? ' +' + x.sdx.length : ''}</span>
        <span class="rw">RW ${(+x.rw).toFixed(4)} · ADJRW ${(+x.adjrw).toFixed(4)}</span>
        <span class="time">${new Date(x.ts).toLocaleTimeString('th-TH')}</span>
      </div>`
   ).join('') : '<div class="hint" style="text-align:center;">ยังไม่มีประวัติ</div>';
   $('histBody').querySelectorAll('.hist-item').forEach(el => {
-    const activate = () => { $('pdx').value = el.dataset.pdx; toast('โหลด PDx: ' + el.dataset.pdx, 2500, 'ok'); };
+    const activate = () => {
+      const idx = +el.dataset.idx;
+      const item = h[idx];
+      if (!item) return;
+      $('pdx').value = item.pdx;
+      SDX = item.sdx || []; PROC = item.proc || [];
+      chipRow($('sdxChips'), SDX); chipRow($('procChips'), PROC);
+      syncSdxVsPdx();
+      updatePdxReadiness();
+      toast('โหลดเคส ' + item.pdx + ' กลับมาแล้ว', 2500, 'ok');
+    };
     el.addEventListener('click', activate);
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
   });
@@ -1617,6 +1766,29 @@ $('btnReset').addEventListener('click', () => {
   closePdxList();
 });
 
+/* ================= THEME TOGGLE (สว่าง/เข้ม) ================= */
+const THEME_SUN = '<svg class="theme-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
+const THEME_MOON = '<svg class="theme-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+function applyTheme(dark) {
+  document.body.setAttribute('data-theme', dark ? 'dark' : 'light');
+  const btn = $('btnTheme'), ic = $('themeIc'), lbl = $('themeLbl');
+  if (btn) btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+  if (ic) ic.outerHTML = dark ? THEME_MOON : THEME_SUN;
+  if (lbl) lbl.textContent = dark ? 'ธีมเข้ม' : 'ธีมสว่าง';
+}
+function initTheme() {
+  let dark = false;
+  try { dark = localStorage.getItem('ktl_drg_theme') === 'dark'; } catch (e) {}
+  applyTheme(dark);
+  const btn = $('btnTheme');
+  if (btn) btn.addEventListener('click', () => {
+    const nd = document.body.getAttribute('data-theme') !== 'dark';
+    applyTheme(nd);
+    try { localStorage.setItem('ktl_drg_theme', nd ? 'dark' : 'light'); } catch (e) {}
+    toast('เปลี่ยนเป็นธีม' + (nd ? 'เข้ม' : 'สว่าง') + 'แล้ว', 2200, 'ok');
+  });
+}
+
 /* ================= INIT ================= */
 (function restore() {
   try {
@@ -1631,6 +1803,7 @@ chipRow($('procChips'), PROC);
 loadDc();
 renderHistory();
 renderQuick();
+initTheme();
 updatePdxReadiness();
 /* โฟกัส PDx อัตโนมัติเฉพาะจอที่มีเมาส์ (กันคีย์บอร์ดเด้งบนมือถือ) */
 if (window.matchMedia && window.matchMedia('(pointer:fine)').matches) {
