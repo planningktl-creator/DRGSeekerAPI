@@ -305,6 +305,9 @@ function chipRow(container, arr) {
   const kind = container._kind;
   const label = kind === 'proc' ? 'เพิ่มรหัสหัตถการ' : 'เพิ่มรหัสวินิจฉัย';
   const isProc = kind === 'proc';
+  /* ตลอดการ re-render นี้ blur ของช่องเก่าที่ innerHTML ตัดทิ้งจะยิงกลาง
+     คาวิธีนี้ — blur handler ต้องข้ามการ commit (ตัวเรียก commit แล้ว) */
+  container._rendering = true;
   container.innerHTML = arr.map(c =>
     `<span class="chip">${esc(c)}<button type="button" class="chip-x" data-c="${esc(c)}" aria-label="ลบ ${esc(c)}" title="ลบ ${esc(c)}">${IC.x}</button></span>`
   ).join('') + `<input type="text" class="chip-input" aria-label="${label}" autocomplete="off"${isProc
@@ -359,8 +362,10 @@ function chipRow(container, arr) {
   inp.addEventListener('blur', e => {
     /* blur ที่ยิงกลาง chipRow (innerHTML ลบช่องที่กำลังโฟกัสอยู่) —
        ข้อความถูก commit โดยตัวเรียกแล้ว ห้าม addCodes ซ้ำ ไม่งั้น
-       innerHTML ซ้อนกันเอง → NotFoundError และโฟกัสหาย */
-    if (!inp.isConnected) return;
+       innerHTML ซ้อนกันเอง → NotFoundError และโฟกัสหาย
+       หมายเหตุ: isConnected ยังเป็น true ตอน blur dispatch กลาง innerHTML
+       (capture phase เห็น connected ก่อน detach เสร็จ) ต้องใช้ flag _rendering */
+    if (!inp.isConnected || container._rendering) return;
     /* ถ้า focus กำลังจะไปที่รายการแนะนำ อย่า commit ข้อความค้างในช่อง
        — ปล่อยให้ click handler จัดการเลือกรายการแทน */
     if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.ac-item')) return;
@@ -370,6 +375,7 @@ function chipRow(container, arr) {
     addCodes(container, arr, codes);
   });
   if (kind === 'sdx') renderRecent();
+  container._rendering = false;
 }
 
 /* ===== Proc autocomplete (ICD-9-CM /libs/icd-cm) ===== */
