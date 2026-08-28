@@ -64,12 +64,14 @@ function setCaseStatus(state, title, detail) {
   el.dataset.state = state || 'ready';
   el.innerHTML = '<span class="status-dot" aria-hidden="true"></span><span><b>' + esc(title) + '</b>' + (detail ? ' · ' + esc(detail) : '') + '</span>';
 }
-function setPdxError(show) {
-  const field = $('pdx') && $('pdx').closest('.field');
-  if (!field) return;
-  field.classList.toggle('has-error', !!show);
-  $('pdx').setAttribute('aria-invalid', show ? 'true' : 'false');
+function setFieldError(input, show) {
+  if (!input) return;
+  const field = input.closest('.field');
+  if (field) field.classList.toggle('has-error', !!show);
+  input.setAttribute('aria-invalid', show ? 'true' : 'false');
 }
+function setPdxError(show) { setFieldError($('pdx'), show); }
+function setHcodeError(show) { setFieldError($('hcode'), show); }
 
 /* ================= NETWORK LAYER (fetch ตรง + proxy fallback) ================= */
 async function fetchT(url, opts, ms) {
@@ -145,6 +147,7 @@ async function loadDc() {
   try {
     const d = await apiGet('libs/ipd-result');
     const dcList = (d && d.rows) || [];
+    if (!dcList.length) throw new Error('empty ipd-result'); /* ได้ 200 แต่ไม่มีรายการ — ให้เข้า fallback เดียวกับ network ล้ม */
     const sel = $('dcStatus');
     sel.innerHTML = '';
     dcList.forEach(r => {
@@ -205,6 +208,7 @@ function selectPdxAc(item) {
 pdxInput.addEventListener('input', function () {
   const q = this.value.trim();
   updatePdxReadiness();
+  setPdxError(false);
   pdAcIndex = -1;
   pdxInput.removeAttribute('aria-activedescendant');
   clearTimeout(pdAcTimer);
@@ -424,16 +428,15 @@ function bindQuick(row, arr, chipsId) {
       }
       if (!arr.includes(c)) { arr.push(c); chipRow($(chipsId), arr); }
       b.classList.add('added');
-      b.setAttribute('aria-pressed', 'true');
       setTimeout(() => b.classList.remove('added'), 600);
     });
   });
 }
 function renderQuick() {
   $('sdxQuick').innerHTML = '<span class="qlbl">พบบ่อย:</span>' + COMMON_DX.map(([c, label]) =>
-    `<button type="button" class="qchip" data-code="${c}" aria-pressed="false" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
+    `<button type="button" class="qchip" data-code="${c}" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
   $('procQuick').innerHTML = '<span class="qlbl">พบบ่อย:</span>' + COMMON_PROC.map(([c, label]) =>
-    `<button type="button" class="qchip" data-code="${c}" aria-pressed="false" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
+    `<button type="button" class="qchip" data-code="${c}" title="เพิ่ม ${c} — ${label}">${c}</button>`).join('');
   bindQuick($('sdxQuick'), SDX, 'sdxChips');
   bindQuick($('procQuick'), PROC, 'procChips');
   renderRecent();
@@ -510,7 +513,7 @@ $('sexSeg').addEventListener('keydown', e => {
 /* ================= PAYLOAD BUILDER ================= */
 function buildPayload(pdx, sdx) {
   const dcCode = $('dcStatus').value || '11';
-  const hcode = clean($('hcode').value) || '10929';
+  const hcode = clean($('hcode').value);
   const age = clampNum($('age').value, 0, 120, 0);
   const ageDay = clampNum($('ageDay').value, 0, 364, 0);
   const weight = clampNum($('weight').value, 0, 300, 0);
@@ -550,6 +553,14 @@ async function calcOne(payload) {
 /* ================= CALCULATE ================= */
 $('btnCalc').addEventListener('click', async () => {
   if (BUSY) return;
+  const hcode = clean($('hcode').value);
+  if (!/^\d{5}$/.test(hcode)) {
+    setHcodeError(true);
+    $('hcode').focus();
+    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก');
+    toast('รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก เช่น 10929', 3000, 'warn');
+    return;
+  }
   const pdx = clean($('pdx').value);
   if (!pdx) {
     setPdxError(true);
@@ -624,6 +635,14 @@ function buildScenarios(codes, currentPdx) {
 
 $('btnPermute').addEventListener('click', async () => {
   if (BUSY) return;
+  const hcode = clean($('hcode').value);
+  if (!/^\d{5}$/.test(hcode)) {
+    setHcodeError(true);
+    $('hcode').focus();
+    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก');
+    toast('รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก เช่น 10929', 3000, 'warn');
+    return;
+  }
   const pdx = clean($('pdx').value);
   if (!pdx) { setPdxError(true); setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'กรุณาระบุ PDx ก่อนเปรียบเทียบ'); toast('กรุณาระบุ PDx (รหัสวินิจฉัยหลัก)', 3000, 'warn'); return; }
   const codes = [...new Set([pdx, ...SDX.map(clean)])].filter(Boolean);
@@ -1047,6 +1066,7 @@ $('btnReset').addEventListener('click', () => {
   $('resultBody').innerHTML = emptyState();
   $('pdx').classList.remove('invalid');
   setPdxError(false);
+  setHcodeError(false);
   setCaseStatus('ready', 'พร้อมคำนวณ', 'ฟอร์มถูกล้างแล้ว · กรอก PDx เพื่อเริ่มใหม่');
   closePdxList();
 });

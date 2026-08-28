@@ -215,7 +215,7 @@ input:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(20, 184, 166, .16);
 }
 input.invalid { border-color: var(--err) !important; box-shadow: 0 0 0 3px rgba(248, 113, 113, .16) !important; }
-input::placeholder { color: #6f9a97; }
+input::placeholder { color: var(--hint); }
 select option { background: var(--ac-bg); color: var(--txt); }
 
 /* ---------- Sex segmented toggle ---------- */
@@ -261,7 +261,7 @@ select option { background: var(--ac-bg); color: var(--txt); }
 .eyebrow { color: var(--teal); font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 4px; }
 .section-note { color: var(--hint); font-size: 12px; margin: -8px 0 16px; line-height: 1.5; }
 .required { color: var(--amber); margin-left: 3px; }
-.field-error { display: none; color: #fca5a5; font-size: 12px; margin-top: 5px; line-height: 1.45; }
+.field-error { display: none; color: var(--err); font-size: 12px; margin-top: 5px; line-height: 1.45; }
 .field.has-error .field-error { display: block; }
 .advanced-fields { border: 1px solid var(--input-border); border-radius: 14px; padding: 0 14px; background: var(--card-2); margin: 6px 0 18px; }
 .advanced-fields summary { cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 700; padding: 12px 2px; list-style-position: inside; }
@@ -517,12 +517,13 @@ body[data-theme="dark"] #loader { background: rgba(4, 31, 31, .96); }
 /* ---------- Toast ---------- */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
-  background: var(--card); border: 1px solid rgba(180, 35, 24, .35); color: var(--err);
+  background: var(--card); border: 1px solid var(--card-border); color: var(--txt);
   padding: 12px 20px; border-radius: 13px; font-size: 13px; z-index: 130;
   opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; max-width: 92vw; text-align: center;
   box-shadow: 0 12px 30px rgba(16, 63, 72, .18);
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.err { border-color: rgba(180, 35, 24, .35); color: var(--err); }
 .toast.ok { border-color: rgba(8, 122, 84, .35); color: var(--ok); }
 .toast.warn { border-color: rgba(167, 91, 0, .35); color: var(--warn); }
 body[data-theme="dark"] .toast { background: #0d3d3d; box-shadow: none; }
