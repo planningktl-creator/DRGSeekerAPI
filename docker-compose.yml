@@ -1,0 +1,9 @@
+# KTL CMI DRG Seeker — docker compose (local dev / self-host)
+services:
+  web:
+    build: .
+    image: ktl-drg-seeker:latest
+    container_name: ktl-drg-seeker
+    ports:
+      - "8080:80"
+    restart: unless-stopped

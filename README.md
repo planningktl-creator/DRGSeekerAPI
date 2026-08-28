@@ -95,6 +95,35 @@ git add web/ && git commit -m "fix: ..." && git push
 
 ---
 
+## 🐳 Docker (self-host / local dev)
+
+รันแอปเป็น static site บน **nginx** (ไม่ต้องพึ่ง GitHub) — ใช้ได้ทั้ง local และ deploy บนเครื่อง/เซิร์ฟเวอร์เอง
+
+**วิธีใช้ (docker compose):**
+```bash
+# build + run บน port 8080
+docker compose up -d --build
+
+# เปิด: http://localhost:8080
+```
+
+**หรือ docker run ตรง ๆ:**
+```bash
+docker build -t ktl-drg-seeker .
+docker run -d -p 8080:80 --name ktl-drg-seeker ktl-drg-seeker
+```
+
+| ไฟล์ | ใช้ทำ |
+|---|---|
+| `Dockerfile` | nginx:alpine + คัดลอก `web/` + healthcheck |
+| `nginx.conf` | gzip, cache asset, security headers |
+| `docker-compose.yml` | build + map port 8080→80, restart policy |
+| `.dockerignore` | ยกเว้นไฟล์ไม่จำเป็นออกจาก image |
+
+> ตัว app ยังเรียก CMI@MoPH ตรงจาก browser — container เป็นแค่ web server เสิร์ฟไฟล์ static
+
+---
+
 ## 🛠️ หมายเหตุทางเทคนิค
 
 - **Static hosting**: ทำงานจากเบราว์เซอร์ล้วน ไม่มี backend — เรียก CMI@MoPH ตรงผ่าน CORS

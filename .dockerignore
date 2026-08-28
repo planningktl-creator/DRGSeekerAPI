@@ -1,0 +1,13 @@
+# ยกเว้นไฟล์ที่ไม่ต้องเข้า image
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+docker-compose.yaml
+.dockerignore
+README.md
+LICENSE
+docs/
+gas-app/
+node_modules/
+*.log
