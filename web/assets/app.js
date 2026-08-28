@@ -357,6 +357,10 @@ function chipRow(container, arr) {
     focusChip(container);
   });
   inp.addEventListener('blur', e => {
+    /* blur ที่ยิงกลาง chipRow (innerHTML ลบช่องที่กำลังโฟกัสอยู่) —
+       ข้อความถูก commit โดยตัวเรียกแล้ว ห้าม addCodes ซ้ำ ไม่งั้น
+       innerHTML ซ้อนกันเอง → NotFoundError และโฟกัสหาย */
+    if (!inp.isConnected) return;
     /* ถ้า focus กำลังจะไปที่รายการแนะนำ อย่า commit ข้อความค้างในช่อง
        — ปล่อยให้ click handler จัดการเลือกรายการแทน */
     if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.ac-item')) return;
