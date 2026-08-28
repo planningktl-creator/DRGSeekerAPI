@@ -942,19 +942,29 @@ $('btnReset').addEventListener('click', () => {
 });
 
 /* ================= THEME TOGGLE ================= */
-const THEME_SUN = '<svg class="theme-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
-const THEME_MOON = '<svg class="theme-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+/* เก็บเฉพาะ inner paths — applyTheme สลับด้วย innerHTML ไม่ทำลาย node
+   เดิม (ถ้าใช้ outerHTML แบบเดิม id="themeIc" จะหายไปกับ node เก่า
+   → ไอคอนค้างหลังคลิกครั้งแรก) */
+const THEME_SUN_PATHS = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>';
+const THEME_MOON_PATHS = '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>';
+/* อ่านธีม: ใช้ค่าที่ผู้ใช้เลือกไว้ ถ้าไม่มีตามระบบ (prefers-color-scheme)
+   — logic นี้ต้องตรงกับ inline script กัน flash ใน index.html */
+function readStoredTheme() {
+  try {
+    const t = localStorage.getItem('ktl_drg_theme');
+    if (t) return t === 'dark';
+  } catch (e) {}
+  return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
 function applyTheme(dark) {
   document.body.setAttribute('data-theme', dark ? 'dark' : 'light');
   const btn = $('btnTheme'), ic = $('themeIc'), lbl = $('themeLbl');
   if (btn) btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
-  if (ic) ic.outerHTML = dark ? THEME_MOON : THEME_SUN;
+  if (ic) ic.innerHTML = dark ? THEME_MOON_PATHS : THEME_SUN_PATHS;
   if (lbl) lbl.textContent = dark ? 'ธีมเข้ม' : 'ธีมสว่าง';
 }
 function initTheme() {
-  let dark = false;
-  try { dark = localStorage.getItem('ktl_drg_theme') === 'dark'; } catch (e) {}
-  applyTheme(dark);
+  applyTheme(readStoredTheme());
   const btn = $('btnTheme');
   if (btn) btn.addEventListener('click', () => {
     const nd = document.body.getAttribute('data-theme') !== 'dark';
