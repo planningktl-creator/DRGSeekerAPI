@@ -3,12 +3,13 @@
 > เครื่องมือคำนวณ DRG (Diagnosis Related Groups) ออนไลน์ — รพ.กันทรลักษ์
 > ใช้ **Grouper ทางการ CMI@MoPH (TGrp6305 v6.3.5 / TDRG 6.3.4)** ผ่าน API สาธารณะ `had-api.moph.go.th`
 
-Web App บน **Google Apps Script (GAS)** สำหรับบุคลากรทางการแพทย์คำนวณ DRG รายเคสออนไลน์
-โดยเรียก Grouper ทางการของกระทรวงสาธารณสุข ไม่ต้องมีเซิร์ฟเวอร์ส่วนตัว โฮสต์ฟรีบน Google
-และเข้าถึงได้จากทุกที่ผ่านลิงก์
+Static Web App บน **GitHub Pages** สำหรับบุคลากรทางการแพทย์คำนวณ DRG รายเคสออนไลน์
+โดยเรียก Grouper ทางการของกระทรวงสาธารณสุขตรงจากเบราว์เซอร์ ไม่ต้องมีเซิร์ฟเวอร์ส่วนตัว
+โฮสต์ฟรีบน GitHub และเข้าถึงได้จากทุกที่ผ่านลิงก์
 
+- **URL**: https://planningktl-creator.github.io/DRGSeekerAPI/
 - **ภาษา UI**: ไทย
-- **ธีม**: dark teal/cyan + amber (แบรนด์ รพ.กันทรลักษ์)
+- **ธีม**: สว่าง/เข้ม (teal/cyan + amber แบรนด์ รพ.กันทรลักษ์)
 - **ผู้พัฒนา**: งานยุทธศาสตร์ รพ.กันทรลักษ์ (10929)
 
 ---
@@ -30,27 +31,30 @@ Web App บน **Google Apps Script (GAS)** สำหรับบุคลาก
 ## 🏗️ สถาปัตยกรรม
 
 ```
-เบราว์เซอร์ผู้ใช้ (Index.html)
-   │  fetch (หลัก)  ────────────►  https://had-api.moph.go.th/cmi
-   │  fallback: google.script.run.proxyCalc/proxyLib  ──►  GAS server (Code.js)
-   │                                                  │        │
-   └──────────────────────────────────────────────────┴────────┘
-                              UrlFetchApp
+เบราว์เซอร์ผู้ใช้ (web/index.html)
+   │  fetch ตรง (หลัก)  ────────────►  https://had-api.moph.go.th/cmi
+   │  fallback: CORS proxy สาธารณะ  ──►  (เมื่อ fetch ตรงล่มชั่วคราว)
+   │
+   └── โฮสต์บน GitHub Pages (static) — ไม่มี server-side, deploy อัตโนมัติผ่าน GitHub Actions
 ```
 
-- **ฝั่ง client**: `Index.html` เรียก API CMI@MoPH โดยตรง (CORS เปิด `*`)
-- **ฝั่ง server (fallback)**: `Code.js` → `doGet()` + `proxyCalc()` / `proxyLib()` ผ่าน `UrlFetchApp`
+- **โฮสต์**: GitHub Pages (static hosting) — ไม่มี backend, ทำงานจากเบราว์เซอร์ล้วน
+- **ตัวหลัก**: `fetch` ตรงไป API CMI@MoPH (CORS เปิด `*`)
+- **fallback**: ลอง CORS proxy สาธารณะ (best-effort) เมื่อ fetch ตรงล่มชั่วคราว
 - API จำกัดเฉพาะ **IP ไทย** (IP ต่างประเทศได้ 404)
 
 ### โครงสร้างไฟล์
 
 ```
-gas-app/
-├── appsscript.json        # manifest (V8, executeAs=USER_DEPLOYING, access=ANYONE_ANONYMOUS)
-├── Code.js                # backend: doGet + proxy ผ่าน UrlFetchApp
-├── Index.html             # frontend หลัก (v2.0) — SPA ธีม dark
-├── Index_v1.8_backup.html # backup เวอร์ชันเก่า
-└── Index_v2_od.html       # backup เวอร์ชัน 2 (variant)
+web/                         # โฟลเดอร์ที่ deploy ขึ้น GitHub Pages
+├── index.html               # SPA หลัก (โครงสร้าง + markup)
+├── .nojekyll                # ปิด Jekyll ของ Pages
+└── assets/
+    ├── styles.css           # Design System v3.0 (ธีมสว่าง/เข้ม, responsive)
+    └── app.js               # Logic ทั้งหมด (fetch, autocomplete, permute, ประวัติ, ธีม)
+
+.github/workflows/deploy-pages.yml   # auto-deploy ไป Pages ทุกครั้งที่ push ไฟล์ใน web/
+gas-app/                             # (เก็บไว้เป็น reference จากเวอร์ชัน GAS เดิม — ไม่ได้ใช้งานแล้ว)
 ```
 
 ---
@@ -71,38 +75,32 @@ gas-app/
 
 ---
 
-## 🚀 Deploy
+## 🚀 Deploy (GitHub Pages)
 
-ใช้ **clasp** (จาก WSL ให้รันผ่าน `cmd.exe` — Windows clasp เท่านั้นที่ใช้ได้, WSL Node HTTPS ไป Google จะพัง)
+**อัตโนมัติ** — ทุกครั้งที่ push ไฟล์ในโฟลเดอร์ `web/` (หรือกด `workflow_dispatch`) workflow
+`.github/workflows/deploy-pages.yml` จะ build + deploy ขึ้น GitHub Pages ให้เอง ไม่ต้องรันอะไร
 
 ```bash
-cd gas-app
-# login ครั้งแรก
-clasp login
-
-# push ขึ้น Google Apps Script
-clasp push -f
-
-# deploy เป็น Web App (ครั้งแรก)
-clasp deploy
-
-# แก้ Index.html แล้ว push ทับ
-clasp push -f
+# แก้ไขโค้ดใน web/ แล้ว push — deploy ให้อัตโนมัติ
+git add web/ && git commit -m "fix: ..." && git push
 ```
 
-**Script ID**: `14OkFJvkNKVd9THChmSfK355aDsypEBWl7hIIAMQhm4TKVopAm7UkBhkT`
+- **URL**: https://planningktl-creator.github.io/DRGSeekerAPI/
+- **ตั้งค่ามือครั้งเดียว**: Repo Settings → Pages → Source = "GitHub Actions" (ทำแล้ว)
+- **Repo**: public (GitHub Pages ฟรีไม่รองรับ private repo)
 
-> ⚠️ Manifest: `access: ANYONE_ANONYMOUS` + `executeAs: USER_DEPLOYING` เป็นแบบตั้งใจ
-> (เป็นเว็บสาธารณะ) อย่าเปลี่ยนเป็น DOMAIN/MYSELF
+### ตรวจสอบ/แก้ fallback proxy
+`web/assets/app.js` → ค่าคงที่ `PROXY_FALLBACKS` (ตัวที่ใช้เมื่อ fetch ตรงล่มชั่วคราว)
+ตัวหลัก (fetch ตรง) ทำงานได้เสมอในไทย เพราะ CMI@MoPH เปิด CORS `*`
 
 ---
 
 ## 🛠️ หมายเหตุทางเทคนิค
 
-- **manifest enum**: `executeAs`/`access` ใช้ตัวพิมพ์ใหญ่ (เช่น `ANYONE_ANONYMOUS`) ไม่งั้น deploy พัง
-- **`.claspignore`**: กันไฟล์ที่ไม่ใช่ GAS ถูก push ขึ้น (เช่น README, `.git/*`)
-- **`Code.gs` vs `code.gs`**: บน drvfs (`/mnt/c/...`) ตัวพิมพ์ใหญ่/เล็กเป็นไฟล์เดียวกัน ระวังอย่า `rm` ตัวอื่น
-- **API เร็ว ~1.4 วินาที/เคส** (รัน EXE บนเซิร์ฟเวอร์เขา)
+- **Static hosting**: ทำงานจากเบราว์เซอร์ล้วน ไม่มี backend — เรียก CMI@MoPH ตรงผ่าน CORS
+- **CORS proxy fallback**: เป็นแค่ safety net เมื่อ fetch ตรงล่มชั่วคราว (ตัวหลักในไทยทำงานได้เสมอ)
+- **API เร็ว ~1.4 วินาที/เคส** (รัน EXE บนเซิร์ฟเวอร์ของ สรท.)
+- **`gas-app/`**: โค้ดเวอร์ชัน GAS เดิมเก็บไว้เป็น reference เท่านั้น ไม่ได้ deploy แล้ว
 
 ---
 
