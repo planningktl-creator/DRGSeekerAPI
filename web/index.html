@@ -49,7 +49,8 @@
 
       <div class="field">
         <label class="lbl" for="hcode">รหัสสถานพยาบาล (HCode) <span class="required">จำเป็น</span></label>
-        <input type="text" id="hcode" value="10929" maxlength="5" inputmode="numeric" autocomplete="off">
+        <input type="text" id="hcode" value="10929" maxlength="5" inputmode="numeric" autocomplete="off" aria-describedby="hcodeError" aria-invalid="false">
+        <div class="field-error" id="hcodeError">รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก เช่น 10929</div>
         <div class="hint">รหัส 5 หลักของสถานพยาบาล · ตัวอย่าง 10929 (รพ.กันทรลักษ์)</div>
       </div>
 
