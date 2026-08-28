@@ -43,6 +43,10 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clean = s => s.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 const parseCodes = raw => raw.trim().toUpperCase().split(/[\s,;]+/).map(clean).filter(Boolean);
+/* แทนที่สมาชิก array แบบ in-place — ห้าม reassign SDX/PROC เพราะ closure
+   (bindChips/bindQuick/container._arr) ถือ reference เดิมไว้ ถูกแทนที่ด้วย array
+   ใหม่แล้ว UI จะเพี้ยนจากข้อมูลที่ส่งจริงไป Grouper */
+const setArr = (arr, items) => { arr.length = 0; arr.push(...(items || [])); };
 
 function toast(msg, ms, type) {
   const t = $('toast');
@@ -268,12 +272,13 @@ function syncSdxVsPdx() {
   const p = clean($('pdx').value);
   if (!p) return;
   if (SDX.includes(p)) {
-    SDX = SDX.filter(x => x !== p);
+    for (let i = SDX.length - 1; i >= 0; i--) if (SDX[i] === p) SDX.splice(i, 1);
     chipRow($('sdxChips'), SDX);
     toast('ลบ ' + p + ' ออกจาก SDx (ซ้ำกับ PDx)', 2500, 'warn');
   }
 }
 function chipRow(container, arr) {
+  container._arr = arr;
   const kind = container._kind;
   const label = kind === 'proc' ? 'เพิ่มรหัสหัตถการ' : 'เพิ่มรหัสวินิจฉัย';
   container.innerHTML = arr.map(c =>
@@ -875,7 +880,7 @@ function renderHistory() {
       const item = h[idx];
       if (!item) return;
       $('pdx').value = item.pdx;
-      SDX = item.sdx || []; PROC = item.proc || [];
+      setArr(SDX, item.sdx); setArr(PROC, item.proc);
       chipRow($('sdxChips'), SDX); chipRow($('procChips'), PROC);
       syncSdxVsPdx();
       updatePdxReadiness();
@@ -899,7 +904,7 @@ $('btnReset').addEventListener('click', () => {
   $('losDay').value = 5; $('losHour').value = 0; $('baseRate').value = 3504;
   $('pdx').value = '';
   setSex(1);
-  SDX = []; PROC = [];
+  setArr(SDX, []); setArr(PROC, []);
   chipRow($('sdxChips'), SDX);
   chipRow($('procChips'), PROC);
   $('resultBody').innerHTML = emptyState();
