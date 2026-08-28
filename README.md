@@ -31,14 +31,14 @@ Static Web App บน **GitHub Pages** สำหรับบุคลากร�
 ## 🏗️ สถาปัตยกรรม
 
 ```
-เบราว์เซอร์ผู้ใช้ (web/index.html)
+เบราว์เซอร์ผู้ใช้ (index.html ที่ root)
    │  fetch ตรง (หลัก)  ────────────►  https://had-api.moph.go.th/cmi
    │  fallback: CORS proxy สาธารณะ  ──►  (เมื่อ fetch ตรงล่มชั่วคราว)
    │
-   └── โฮสต์บน GitHub Pages (static) — ไม่มี server-side, deploy อัตโนมัติผ่าน GitHub Actions
+   └── โฮสต์บน static hosting ใดก็ได้ (GitHub Pages / Netlify / Docker)
 ```
 
-- **โฮสต์**: GitHub Pages (static hosting) — ไม่มี backend, ทำงานจากเบราว์เซอร์ล้วน
+- **โฮสต์**: static hosting — ไม่มี backend, ทำงานจากเบราว์เซอร์ล้วน
 - **ตัวหลัก**: `fetch` ตรงไป API CMI@MoPH (CORS เปิด `*`)
 - **fallback**: ลอง CORS proxy สาธารณะ (best-effort) เมื่อ fetch ตรงล่มชั่วคราว
 - API จำกัดเฉพาะ **IP ไทย** (IP ต่างประเทศได้ 404)
@@ -46,15 +46,15 @@ Static Web App บน **GitHub Pages** สำหรับบุคลากร�
 ### โครงสร้างไฟล์
 
 ```
-web/                         # โฟลเดอร์ที่ deploy ขึ้น GitHub Pages
-├── index.html               # SPA หลัก (โครงสร้าง + markup)
-├── .nojekyll                # ปิด Jekyll ของ Pages
-└── assets/
-    ├── styles.css           # Design System v3.0 (ธีมสว่าง/เข้ม, responsive)
-    └── app.js               # Logic ทั้งหมด (fetch, autocomplete, permute, ประวัติ, ธีม)
+index.html                    # SPA หลัก (ที่ root เพื่อให้ static host ใด ๆ พร้อมใช้)
+.nojekyll                     # ปิด Jekyll ของ GitHub Pages
+assets/
+├── styles.css                # Design System v3.0 (ธีมสว่าง/เข้ม, responsive)
+└── app.js                    # Logic ทั้งหมด (fetch, autocomplete, permute, ประวัติ, ธีม)
 
-.github/workflows/deploy-pages.yml   # auto-deploy ไป Pages ทุกครั้งที่ push ไฟล์ใน web/
-gas-app/                             # (เก็บไว้เป็น reference จากเวอร์ชัน GAS เดิม — ไม่ได้ใช้งานแล้ว)
+Dockerfile, nginx.conf, docker-compose.yml   # self-host ผ่าน Docker
+.github/workflows/deploy-pages.yml           # auto-deploy ไป GitHub Pages
+gas-app/                       # (เก็บไว้เป็น reference จากเวอร์ชัน GAS เดิม — ไม่ได้ใช้งานแล้ว)
 ```
 
 ---
@@ -77,12 +77,12 @@ gas-app/                             # (เก็บไว้เป็น refere
 
 ## 🚀 Deploy (GitHub Pages)
 
-**อัตโนมัติ** — ทุกครั้งที่ push ไฟล์ในโฟลเดอร์ `web/` (หรือกด `workflow_dispatch`) workflow
+**อัตโนมัติ** — ทุกครั้งที่ push ไฟล์ `index.html` / `assets/` (หรือกด `workflow_dispatch`) workflow
 `.github/workflows/deploy-pages.yml` จะ build + deploy ขึ้น GitHub Pages ให้เอง ไม่ต้องรันอะไร
 
 ```bash
-# แก้ไขโค้ดใน web/ แล้ว push — deploy ให้อัตโนมัติ
-git add web/ && git commit -m "fix: ..." && git push
+# แก้ไขโค้ดแล้ว push — deploy ให้อัตโนมัติ
+git add index.html assets/ && git commit -m "fix: ..." && git push
 ```
 
 - **URL**: https://planningktl-creator.github.io/DRGSeekerAPI/
@@ -90,7 +90,7 @@ git add web/ && git commit -m "fix: ..." && git push
 - **Repo**: public (GitHub Pages ฟรีไม่รองรับ private repo)
 
 ### ตรวจสอบ/แก้ fallback proxy
-`web/assets/app.js` → ค่าคงที่ `PROXY_FALLBACKS` (ตัวที่ใช้เมื่อ fetch ตรงล่มชั่วคราว)
+`assets/app.js` → ค่าคงที่ `PROXY_FALLBACKS` (ตัวที่ใช้เมื่อ fetch ตรงล่มชั่วคราว)
 ตัวหลัก (fetch ตรง) ทำงานได้เสมอในไทย เพราะ CMI@MoPH เปิด CORS `*`
 
 ---
@@ -115,7 +115,7 @@ docker run -d -p 8080:80 --name ktl-drg-seeker ktl-drg-seeker
 
 | ไฟล์ | ใช้ทำ |
 |---|---|
-| `Dockerfile` | nginx:alpine + คัดลอก `web/` + healthcheck |
+| `Dockerfile` | nginx:alpine + คัดลอก `index.html`/`assets/` + healthcheck |
 | `nginx.conf` | gzip, cache asset, security headers |
 | `docker-compose.yml` | build + map port 8080→80, restart policy |
 | `.dockerignore` | ยกเว้นไฟล์ไม่จำเป็นออกจาก image |

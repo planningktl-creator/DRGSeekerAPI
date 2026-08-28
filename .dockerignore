@@ -9,5 +9,5 @@ README.md
 LICENSE
 docs/
 gas-app/
-node_modules/
+.github/
 *.log

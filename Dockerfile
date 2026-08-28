@@ -1,6 +1,6 @@
 # ============================================================
 # KTL CMI DRG Seeker — Dockerfile (static web app)
-# Serve โฟลเดอร์ web/ (GitHub Pages app) ผ่าน nginx
+# Serve index.html (ที่ root ของ repo) ผ่าน nginx
 # ใช้ได้ทั้ง local dev และ production (deploy บนเครื่องใดก็ได้)
 # ============================================================
 
@@ -10,8 +10,9 @@ FROM nginx:1.27-alpine AS runtime
 # ใส่ custom config (gzip, cache, security headers)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# ไฟล์ static app
-COPY web/ /usr/share/nginx/html/
+# ไฟล์ static app (อยู่ที่ root ของ repo) — แยก COPY เพื่อรักษาโครงสร้างโฟลเดอร์
+COPY index.html /usr/share/nginx/html/
+COPY assets /usr/share/nginx/html/assets/
 
 # metadata
 LABEL org.opencontainers.image.title="KTL CMI DRG Seeker" \
