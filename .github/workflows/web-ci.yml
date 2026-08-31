@@ -1,12 +1,12 @@
-# CI ตรวจโค้ด web/ — รันทุก PR และ push ที่แตะ web/
+# CI ตรวจ raw-static contract และโค้ด web/ — รันทุก PR และ push ที่แตะ entrypoint/app
 name: Web CI
 
 on:
   pull_request:
-    paths: ['web/**']
+    paths: ['index.html', 'web/**', 'scripts/check-static.mjs', '.github/workflows/web-ci.yml']
   push:
     branches: [main]
-    paths: ['web/**', '.github/workflows/web-ci.yml']
+    paths: ['index.html', 'web/**', 'scripts/check-static.mjs', '.github/workflows/web-ci.yml']
 
 permissions:
   contents: read
@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Static deployment preflight
+        run: node scripts/check-static.mjs
       - name: Syntax check app.js
         run: node --check web/assets/app.js
       - name: Check asset references exist

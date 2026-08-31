@@ -22,3 +22,7 @@ appsscript.json.bak
 
 # Logs
 *.log
+
+# Local build/test artifacts
+dist/
+test-results/

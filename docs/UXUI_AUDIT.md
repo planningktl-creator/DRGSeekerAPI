@@ -1,148 +1,146 @@
-# KTL CMI DRG Seeker — UX/UI Audit Report
+# KTL CMI DRG Seeker — Deployment / UX / Runtime Audit
 
-> วันที่ตรวจ: 2026-08-28 · ตรวจโดย: Hermes Agent
-> ขอบเขต: `Index.html` (frontend SPA) + `Code.js` (backend GAS proxy)
-> **สถานะ: รายการ 🔴/🟡/🟢 ด้านล่างได้รับการแก้ไขแล้ว (2026-08-28) — ดูสรุปการแก้ที่ท้ายไฟล์**
+> วันที่ตรวจ: 2026-08-31 · ขอบเขต: raw-static deployment, `web/index.html`, `web/assets/app.js`, CI และ browser regression suite
+> สถานะ: แก้ไขตาม audit แล้วใน working tree นี้; ต้อง push และตั้งค่า provider ตาม deployment contract ก่อนใช้งานจริง
 
----
+## สรุปผล
 
-## สรุปภาพรวม
+สาเหตุของ SPA build ที่แจ้งว่าไม่พบ `package.json` และ `index.html` ไม่ใช่การขาด entrypoint ในแอปปัจจุบัน แต่เป็น source tree ที่ builder clone ไม่ตรงกับ repository source of truth:
 
-แอปนี้เป็น **งาน UX/UI ระดับสูง (PRO MAX) จริง** ไม่ใช่แค่ "หน้าสวย" แต่มีระบบ design token
-ที่สมบูรณ์, a11y รอบด้าน, responsive ครบทุกจอ, และสถานะ/ความผิดพลาดทุกสถานะที่ผู้ใช้จะเจอ
-เป็นเครื่องมือในสายงานที่คนใช้ทุกวัน — และถูกออกแบบมาอย่างมืออาชีพ
+- repository ที่ถูกต้องคือ `https://github.com/planningktl-creator/DRGSeekerAPI.git`
+- branch ที่ถูกต้องคือ `main`
+- commit ที่ตรวจสอบคือ `a42769507c71bb7e92c7af9d4c53315f6bbbcb8d`
+- root มี `index.html` เป็น redirect ไป `web/`; application source อยู่ใน `web/`
+- ไม่มี root `package.json` โดยตั้งใจ เพราะ deploy แบบ raw static
+- `origin` ใน local Git ถูกแก้จาก `DRGSeeker.git` เป็น `DRGSeekerAPI.git`
 
-**ประเด็นสำคัญที่สุด (🔴):** ระบบธีมมี **dead code + meta ขัดแย้ง** — แอป render เป็น **ธีมสว่าง
-(Clinical Light) เสมอ** แต่ `<meta color-scheme="dark">`, คอมเมนต์ design-system ("พื้นเขียวเข้ม"),
-และ `:root` ธีมเข้มทั้งก้อน (164 บรรทัด) ยังบอกว่าเป็นธีมเข้ม กล่าวคือ **ธีมเข้มถูกเขียนเสร็จ
-คุณภาพดี แต่ไม่มีทางเปิดใช้** (ไม่มี `prefers-color-scheme` ไม่มีปุ่มสลับ)
+รายการจาก failed build ที่มี `proxy/` แต่ไม่มี root `index.html` จึงไม่ใช่ tree ของ `DRGSeekerAPI/main` ที่ตรวจสอบข้างต้น ต้องแก้ source/branch/cache ของ provider และทำ fresh clone
 
----
+| ระดับ | ประเด็น | ผลการแก้ |
+|---|---|---|
+| P0 | clone ผิด repository/branch/commit | เพิ่ม contract ใน README/CI และแก้ local remote แล้ว |
+| P0 | builder หา root entrypoint ไม่พบ | คง root redirect และเพิ่ม static preflight |
+| P1 | input ถูก clamp/truncate เงียบ ๆ | validation ก่อนสร้าง payload; block เมื่อเกินช่วง/limit |
+| P1 | response/API output ไม่ถูกตรวจและ OT เสี่ยง injection | parse response contract และ escape dynamic output ทุกจุด |
+| P1 | autocomplete/metadata มี stale response | เพิ่ม sequence และ calculation generation guard |
+| P1 | permute อาจค้าง BUSY เมื่อ throw | ครอบ lifecycle ด้วย `try/catch/finally` |
+| P1 | history เก็บข้อมูลสุขภาพอัตโนมัติ | default memory-only; localStorage ต้อง opt-in |
+| P2 | CI/docs ไม่สื่อ dual deployment | เพิ่ม preflight, E2E workflow และ provider documentation |
 
-## เกณฑ์การให้คะแนน
+## Deployment contract
 
-| ระดับ | ความหมาย |
-|---|---|
-| 🔴 | ต้องแก้ — ขัดแย้ง/เสีย UX จริง/ทำให้ผู้ใช้สับสน |
-| 🟡 | ควรแก้ — เพิ่มคุณภาพ / ความเสี่ยงปานกลาง |
-| 🟢 | ปรับปรุงได้ — polish / ข้อแนะนำ |
+### SPA Builder
 
----
+ตั้ง provider ให้:
 
-## 🔴 ต้องแก้ (สูง)
+1. clone `https://github.com/planningktl-creator/DRGSeekerAPI.git` แบบ fresh
+2. ใช้ branch `main` และตรวจว่าเห็น commit `a42769507c71bb7e92c7af9d4c53315f6bbbcb8d` หรือใหม่กว่า
+3. publish repository root (`.`) แบบ recursive
+4. เลือก raw static/no npm build
+5. ใช้ root `index.html` เป็น entrypoint
 
-### 1. ระบบธีมแตก — ธีมเข้มเป็น dead code + meta ขัดแย้ง
-**หลักฐาน:**
-- `:root` ธีมเข้ม (line 21) + `:root` ธีมสว่าง (line 484) — specificity เท่ากัน → **ธีมสว่างชนะเสมอ**
-- `<meta name="color-scheme" content="dark">` (line 7) แต่ CSS `:root` (line 485) ตั้ง `color-scheme: light`
-- คอมเมนต์ design-system (line 15-20): "พื้นเขียวเข้ม + teal/cyan accent" — ขัดกับที่ render จริง
-- **ไม่มี** `prefers-color-scheme` (0 รายการ) และ **ไม่มี** ปุ่มสลับธีม/JS สลับธีม (0 รายการ)
+root entrypoint redirect ไป `/web/` และ relative asset path จะโหลดจาก `web/assets/` หลัง redirect สำเร็จ ห้ามแก้ด้วยการเพิ่ม root `package.json` หรือ duplicate application ไป root เพราะจะเปลี่ยน contract ของ repository
 
-**ผล:** ผู้ใช้เห็นธีมสว่างเสมอ ธีมเข้ม (เขียนเสร็จ คุณภาพดี) ไม่ถูกใช้เลย
-**ข้อเสนอแนะ (แนะนำ):** ธีมเข้มเขียนเสร็จแล้ว → แค่**เพิ่มสวิตช์ธีมจริง** ที่ default ตาม
-`prefers-color-scheme` + เก็บตัวเลือกใน `localStorage` และแก้ meta เป็น `light dark` (ค่าเริ่มต้นสว่าง)
-ให้ผู้ใช้เลือก 3 โหมด (สว่าง/เข้ม/ตามระบบ) — ได้ทั้ง dark mode ฟรีจากโค้ดที่มีอยู่แล้ว
-**หรือ** ถ้าไม่ต้องการ dark mode: ลบ `:root` เข้ม (line 21-45) + body เข้ม (48-60) ที่โดนทับ + แก้ meta/comments ให้ตรงกับธีมสว่าง
+### GitHub Pages
 
----
+`.github/workflows/deploy-pages.yml` upload `web/` เป็น Pages artifact ดังนั้น document root ของ Pages คือ:
 
-## 🟡 ควรแก้ (กลาง)
+`https://planningktl-creator.github.io/DRGSeekerAPI/`
 
-### 2. ประวัติบันทึกเฉพาะ PDx ไม่บันทึกทั้งเคส
-`saveHistory` (line 1574) เก็บแค่ `{ts, pdx, drg, rw, adjrw}` และคลิกประวัติ (line 1591) โหลดกลับ
-**แค่ค่า PDx** → ผู้ใช้ต้องกรอก SDx/Proc/อายุ/LOS ใหม่หมด
-**ข้อเสนอ:** เก็บ `payload.data[0]` ทั้งก้อน (hcode/age/weight/sdx/proc/dcStatus) แล้วคลิกประวัติ
-โหลดเต็มฟอร์ม — ผู้ใช้กลับมาแก้ต่อได้จริง (เหมาะกับสายงานที่ทำทีละหลายเคส)
+บน Pages URL นี้จะโหลด `web/index.html` และ asset เป็น `/assets/...`; `/DRGSeekerAPI/web/` ตอบ 404 ได้ตามปกติ ไม่ใช่ URL ที่ต้องใช้ตรวจ Pages
 
-### 3. ระบบเปรียบเทียบอาจใช้เวลานานมากโดยไม่เตือนล่วงหน้า
-`MAX_SCENARIOS=2000` × ~1.4 วิ ≈ **47 นาที** (line 1278, 1463) มีปุ่มหยุด+ETA แล้ว แต่ไม่มีการ
-"ยืนยันก่อนรันยาว" เมื่อ scenario เกิน เช่น 200 แบบ
-**ข้อเสนอ:** ถ้า scenario > ~100 ให้ถามยืนยันก่อน ("จะทดสอบ N แบบ ใช้เวลาประมาณ X นาที — ดำเนินต่อ?")
-+ แนะนำลด SDx หรือทดสอบเฉพาะชุดที่สนใจ
+### Static preflight
 
-### 4. ไม่มี field-level validation สำหรับ hcode / ช่วงค่าก่อนส่ง
-`input` มี `min`/`max` (ช่วยใน UI) แต่ `buildPayload` (line 1209) ใช้ค่าตรง ๆ ไม่ clamp ไม่ตรวจ
-`hcode` ต้อง 5 หลัก, `age` 0-120 ฯลฯ — พิมพ์เกิน range ได้ถ้า bypass spinner
-**ข้อเสนอ:** validate + clamp ใน `buildPayload` หรือก่อน `calcOne` และแสดง error รายฟิลด์ (มี CSS
-`.field.has-error` พร้อมแล้ว)
+`node scripts/check-static.mjs` ตรวจ:
 
----
+- root `index.html` มี redirect/link ไป `web/`
+- `web/index.html` และ `web/.nojekyll` มีอยู่จริง
+- asset ที่อ้างจาก `web/index.html` มีอยู่จริง รวม `assets/app.js` และ `assets/styles.css`
+- ไม่มี root `package.json` ที่จะทำให้ raw-static builder เปลี่ยนไปใช้ npm build
 
-## 🟢 ปรับปรุงได้ (ต่ำ / polish)
+## Runtime hardening
 
-### 5. ค่า D/C status ตอน offline — fallback เงียบ
-`loadDc` catch (line 881) ตั้ง `"ใช้ค่าเริ่มต้น (11)"` เงียบ — ผู้ใช้ไม่รู้ว่าไม่ได้โหลดรายการจริง
-**ข้อเสนอ:** toast/small note บอกว่าใช้ค่าเริ่มต้นเพราะโหลด D/C status ไม่ได้
+### Wire contract
 
-### 6. ตัวเลข LOS ในผลลัพธ์
-`renderResult` แสดง `r.los ?? '—'` (line 1491) — ถ้า API ไม่ส่ง `los` (คำนวณจาก los_day/los_hour
-เองได้) จะโชว์ "—" ทั้งที่กรอกแล้ว
-**ข้อเสนอ:** fallback คำนวณ `los_day + los_hour/24`
+ยังคง contract เดิมทั้งหมด:
 
-### 7. ลำดับการยิง libs ในผลลัพธ์
-`loadDrgName` + `loadDesc` ยิงทีละ request (line 1517-1528) — ใช้ได้ แต่ถ้า network ช้า ชื่อ DRG
-จะโผล่ทีหลังแบบค่อย ๆ
-**ข้อเสนอ:** Promise.all พร้อมกัน หรือ cache ชื่อ DRG/error/warning ที่เคยโหลดไว้ใน `localStorage`
-(รหัสซ้ำบ่อยในสายงาน) — ตัด request ซ้ำ
+- `POST https://had-api.moph.go.th/cmi/drg/calculate`
+- `GET /libs/*` สำหรับ metadata/autocomplete
+- payload `version: "6"` และ `data[0]`
+- POST case data ไม่ผ่าน public CORS proxy; fallback จำกัดเฉพาะ GET `/libs/*`
 
-### 8. a11y ละเอียดขึ้น
-- `chip-x` ลบ chip: มี `aria-label` แล้ว ดี ✓ แต่ควรเพิ่ม `type="button"` (มีแล้ว) — ผ่าน
-- `.qchip` พบบ่อย: ควรเพิ่ม `aria-pressed` ว่าเพิ่มแล้ว (ตอนนี้ `added` เป็นแค่ opacity + pointer-events)
-- คอนทราสต์ `.hint` สี `#7fa8a5` / `#607c82` บนเข้ม/สว่าง — ควรเช็ค WCAG AA จริง (คอมเมนต์บอก ≥4.5:1 แต่ควรตรวจด้วย tool)
+ฟังก์ชันภายในที่ใช้เป็น boundary ใหม่:
 
-### 9. Mobile bottom bar — ปุ่ม Reset เป็น icon-only
-`#btnResetM` (line 744) เป็น icon-only มี `aria-label` แล้ว ✓ แต่บนจอแคบมาก ปุ่ม 3 ปุ่ม + label
-"คำนวณ/เปรียบเทียบ" อาจแคบ — ใช้ flex จัดการได้แล้ว น่าจะ OK
+- `validateCaseInput(mode)` คืน `{ ok, errors, value }`
+- `buildPayload(value)` สร้าง payload หลัง validation และตรวจซ้ำ
+- `parseCalcResponse(response)` บังคับ API status 200, array `data` และ `data[0].drg`
 
----
+### Validation limits
 
-## จุดแข็งที่ควรคงไว้ (strengths)
+- HCode ต้องเป็นตัวเลข 5 หลัก
+- PDx ต้องไม่ว่างหลัง normalizer
+- อายุ 0–120 ปี และอายุวัน 0–364 เป็นจำนวนเต็ม
+- น้ำหนัก 0–300 เป็น finite number
+- LOS วัน 0–9999 และ LOS ชั่วโมง 0–23 เป็นจำนวนเต็ม
+- Base Rate 0–10,000,000 เป็น finite number
+- normal calculation: SDx ไม่เกิน 12 และ Proc ไม่เกิน 20
+- comparison: candidate รวม PDx/SDx ไม่เกิน 30; ทุก request ที่สร้างยังมี SDx ไม่เกิน 12
 
-- **Design tokens สมบูรณ์** — `:root` มีสี/ฟอนต์/รัศมีครบ มีทั้ง dark และ light พร้อม palette ย่อย
-- **a11y ดีมาก** — `role="radiogroup"`+ลูกศร, `combobox`+`aria-activedescendant`, `aria-live` ทุก status,
-  `:focus-visible` ring, `prefers-reduced-motion`, keyboard nav (Enter/Esc/ลูกศร), touch target ≥44px,
-  iOS `font-size:16px` กัน auto-zoom
-- **Responsive ครบ** — grid 2 คอลัมน์ → 1, stats 5→3→2, mobile bottom bar + safe-area,
-  ตารางเปรียบเทียบ scroll แนวนอน + ซ่อนคอลัมน์รองบนมือถือ
-- **XSS ปลอดภัย** — `esc()` ใช้ทุกจุดที่ render ค่า user/API (verified: chip, autocomplete, result, history)
-- **สถานะครบ** — loader ทึบ + button `.loading`, case-strip 4 สถานะ (ready/working/success/error),
-  empty state, error state พร้อม friendly ภาษาไทย + hint geo/network, streaming progress + ETA + stop
-- **UX การกรอกดี** — autocomplete debounce 300ms, paste หลายรหัสพร้อมกัน, กันรหัสซ้ำกับ PDx, quick chips + recent
-- **Tag balance ผ่าน** — div 101/101, table/tr/td/th ครบ (verified)
-- **Backup discipline** — มี `Index_v1.8_backup.html`, `Index_v2_od.html` เก็บ variant เก่าไว้
+ไม่มีการ clamp หรือ slice รายการเพื่อซ่อน input ที่ผิด; ผู้ใช้จะเห็น error รายฟิลด์และต้องแก้ก่อนส่ง
 
----
+### Output safety and async state
 
-## ลำดับการแก้ที่แนะนำ
+ค่าจาก API ที่อยู่ใน `innerHTML` ใช้ `esc()` รวม `r.ot` ในผลปกติ, `r.ot` ในตาราง comparison และ `baselineRes.ot` ส่วนค่าที่ควรเป็นข้อความใช้ `textContent` และ URL metadata encode ด้วย `encodeURIComponent`
 
-| ลำดับ | เรื่อง | ระดับ | ค่าคุ้ม/ความพยายาม |
-|---|---|---|---|
-| 1 | ธีม: เพิ่มสวิตช์ สว่าง/เข้ม/ระบบ + แก้ meta | 🔴 | สูง/ต่ำ (โค้ดเข้มมีแล้ว) |
-| 2 | ประวัติบันทึกทั้งเคส | 🟡 | สูง/ปานกลาง |
-| 3 | ยืนยันก่อนรันเปรียบเทียบยาว | 🟡 | กลาง/ต่ำ |
-| 4 | Validate field ใน buildPayload | 🟡 | กลาง/ต่ำ |
-| 5-9 | polish (D/C note, LOS fallback, cache libs, a11y) | 🟢 | ต่ำ/ต่ำ |
+ICD autocomplete มี sequence guard ต่อ query และ procedure autocomplete ตรวจทั้ง sequence, input node, focus และ query ล่าสุด จึงไม่ให้ response เก่าเขียนทับรายการใหม่
 
----
+ผลชื่อ DRG/error/warning ผูกกับ `calculationGeneration`; callback ของ calculation เก่าจะไม่แก้ DOM ของผลลัพธ์ปัจจุบัน
 
-*ไฟล์นี้คือรายงานการตรวจสอบ UX/UI — **รายการทั้งหมดในลำดับแนะนำได้รับการแก้ไขแล้ว**
-*รายละเอียดการแก้: ดู commit และโค้ดจริงใน `Index.html`*
+permute ตรวจ response ทุก request, เก็บ error ต่อ scenario และคืน loader/button/BUSY ใน `finally` แม้ baseline, request หรือ render จะ throw
 
----
+## Privacy ของ history
 
-## สรุปการแก้ไขที่ทำแล้ว (2026-08-28)
+- default: history และ recent codes อยู่ใน memory ของ tab เท่านั้น
+- ไม่มี auto-restore หลัง reload เมื่อไม่ได้ opt-in
+- checkbox “จำประวัติบนเครื่องนี้” ต้องเปิดก่อนจึงจะ persist ลง `ktl_drg_hist`/`ktl_drg_recent`
+- legacy health storage ที่ไม่มี opt-in flag ถูก purge และไม่ถูกโหลดกลับ
+- opt-out ล้าง memory และ keys ของเคสทั้งสองรายการ
+- theme และ dictionary cache `ktl_lib_*` ไม่ถูกล้าง เพราะไม่ใช่ case history
+- UI เตือนชัดเจนว่า localStorage เป็นข้อมูลสุขภาพบนเครื่องนี้ และไม่ควรเปิดบนเครื่องสาธารณะ
 
-| # | เรื่อง | ระดับ | สถานะ |
-|---|---|---|---|
-| 1 | ธีม: เพิ่มสวิตช์ สว่าง/เข้ม + แก้ meta เป็น `light dark` + dark override block | 🔴 | ✅ ทำแล้ว |
-| 2 | ประวัติบันทึกทั้งเคส (PDx+SDx+Proc) + โหลดกลับเต็มฟอร์ม | 🟡 | ✅ ทำแล้ว |
-| 3 | ยืนยันก่อนรันเปรียบเทียบยาว (>60 scenario) | 🟡 | ✅ ทำแล้ว |
-| 4 | field validation + clamp ใน `buildPayload`/`clampNum` | 🟡 | ✅ ทำแล้ว |
-| 5 | D/C offline fallback + toast แจ้ง | 🟢 | ✅ ทำแล้ว |
-| 6 | LOS fallback (คำนวณจาก los_day/los_hour) | 🟢 | ✅ ทำแล้ว |
-| 7 | cache ชื่อ DRG/error/warning ใน localStorage | 🟢 | ✅ ทำแล้ว |
-| 8 | qchip เพิ่ม `aria-pressed` | 🟢 | ✅ ทำแล้ว |
+## CI / test coverage
 
-**การทดสอบ:** node --check ผ่าน, tag balance ครบ, Playwright headless + API จริง
-ยืนยัน: ธีมสลับได้ + เก็บค่า, คำนวณจริงได้ผล DRG 01550, ประวัติโหลดเคสกลับครบ PDx/SDx/Proc,
-clamp ค่า 999→120, D/C status โหลด 28 รายการ — ไม่มี page error
+root ยังคงไม่มี `package.json`; Playwright อยู่ใน `tests/package.json` แยกจาก application root และ workflow `.github/workflows/web-e2e.yml` ใช้ synthetic/mock payload เท่านั้น
+
+Regression suite ครอบคลุม:
+
+- static discovery, root redirect, `/web/`, asset loading และ mobile 375px overflow
+- version 6 mock calculation และ response contract
+- HCode/numeric validation, SDx/Proc limits และ comparison cap 30
+- ห้าม POST ผ่าน proxy
+- history default-off, opt-in, restore, clear และ legacy purge
+- malicious `OT` output ใน normal/comparison result
+- stale ICD autocomplete และ stale DRG metadata
+- permute baseline failure, stop และ BUSY/loader/button recovery
+
+คำสั่งตรวจ local:
+
+```bash
+node scripts/check-static.mjs
+node --check web/assets/app.js
+cd tests
+npm ci
+npx playwright install chromium
+npm test
+```
+
+## Production acceptance checklist
+
+- [ ] provider clone `DRGSeekerAPI/main` แบบ fresh และพบ root `index.html`
+- [ ] SPA Builder publish root recursive และ redirect ไป `/web/` สำเร็จ
+- [ ] `/web/assets/app.js` และ `/web/assets/styles.css` ตอบ 200 หลัง redirect
+- [ ] Pages ใช้ URL root ของ Pages ไม่ใช่ `/web/`
+- [ ] browser ไม่มี console/page error
+- [ ] จากเครือข่ายไทย GET metadata และ synthetic POST ไป CMI API สำเร็จ
+- [ ] หาก provider inject CSP ต้องอนุญาต `connect-src` ไป `https://had-api.moph.go.th` และ GET proxy ที่จำเป็น
+- [ ] CI/test ไม่ใช้ข้อมูลผู้ป่วยจริง

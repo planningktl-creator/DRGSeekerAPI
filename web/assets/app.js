@@ -23,6 +23,16 @@ let SEX = 1;
 let SDX = [];
 let PROC = [];
 let BUSY = false;
+const MAX_SDX = 12;
+const MAX_PROC = 20;
+const MAX_PERMUTE_CODES = 30;
+const HISTORY_STORAGE_KEY = 'ktl_drg_hist';
+const RECENT_STORAGE_KEY = 'ktl_drg_recent';
+const HISTORY_OPT_IN_KEY = 'ktl_drg_history_opt_in';
+let historyPersistenceEnabled = false;
+let caseHistory = [];
+let recentCodes = [];
+let calculationGeneration = 0;
 
 /* ================= ICONS ================= */
 const S = ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
@@ -89,7 +99,7 @@ async function apiRequest(path, { method = 'GET', body = null } = {}) {
   /* 1) ลอง fetch ตรงก่อน (CORS ของ CMI@MoPH เปิด *) */
   try {
     const r = await fetchT(url, opts, method === 'POST' ? 30000 : 20000);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (r.status !== 200) throw new Error('HTTP ' + r.status);
     return await r.json();
   } catch (directErr) {
     /* 2) fallback ผ่าน CORS proxy — GET /libs/* เท่านั้น
@@ -100,9 +110,8 @@ async function apiRequest(path, { method = 'GET', body = null } = {}) {
       try {
         const pUrl = p + encodeURIComponent(url);
         const ropts = { method, headers: {} };
-        if (body) { ropts.headers['Content-Type'] = 'application/json'; ropts.body = JSON.stringify(body); }
         const r = await fetchT(pUrl, ropts, 20000);
-        if (!r.ok) throw new Error('proxy HTTP ' + r.status);
+        if (r.status !== 200) throw new Error('proxy HTTP ' + r.status);
         const ct = (r.headers.get('content-type') || '');
         return ct.includes('json') ? await r.json() : JSON.parse(await r.text());
       } catch (e) { lastErr = e; }
@@ -135,9 +144,11 @@ function emptyState() {
 }
 function setBusy(b, which) {
   BUSY = b;
-  ['btnCalc', 'btnPermute', 'btnReset', 'btnCalcM', 'btnPermuteM', 'btnResetM'].forEach(id => {
+  const buttonIds = ['btnCalc', 'btnPermute', 'btnReset', 'btnCalcM', 'btnPermuteM', 'btnResetM'];
+  buttonIds.forEach(id => {
     const el = $(id);
     if (el) el.disabled = b;
+    if (el && !b) el.classList.remove('loading');
   });
   if (which && $(which)) $(which).classList.toggle('loading', b);
 }
@@ -170,7 +181,7 @@ async function loadDc() {
 }
 
 /* ================= PDx AUTOCOMPLETE (ICD-10) ================= */
-let pdAcTimer = null, pdAcIndex = -1;
+let pdAcTimer = null, pdAcIndex = -1, pdAcSequence = 0;
 const pdxInput = $('pdx'), pdxList = $('pdxAc');
 function updatePdxReadiness() {
   const pdx = clean(pdxInput.value);
@@ -183,6 +194,7 @@ function updatePdxReadiness() {
 }
 function openPdxList() { pdxList.classList.add('open'); pdxInput.setAttribute('aria-expanded', 'true'); }
 function closePdxList() {
+  pdAcSequence++;
   pdxList.classList.remove('open');
   pdxInput.setAttribute('aria-expanded', 'false');
   pdxInput.removeAttribute('aria-activedescendant');
@@ -207,6 +219,7 @@ function selectPdxAc(item) {
 }
 pdxInput.addEventListener('input', function () {
   const q = this.value.trim();
+  const requestId = ++pdAcSequence;
   updatePdxReadiness();
   setPdxError(false);
   pdAcIndex = -1;
@@ -217,8 +230,11 @@ pdxInput.addEventListener('input', function () {
   pdAcTimer = setTimeout(async () => {
     try {
       const d = await apiGet('libs/icd10/' + encodeURIComponent(q));
+      if (requestId !== pdAcSequence || pdxInput.value.trim() !== q) return;
       renderPdxAc((d && d.rows) || []);
-    } catch (e) { closePdxList(); }
+    } catch (e) {
+      if (requestId === pdAcSequence && pdxInput.value.trim() === q) closePdxList();
+    }
   }, 300);
 });
 pdxList.addEventListener('click', e => {
@@ -305,6 +321,7 @@ function chipRow(container, arr) {
   const kind = container._kind;
   const label = kind === 'proc' ? 'เพิ่มรหัสหัตถการ' : 'เพิ่มรหัสวินิจฉัย';
   const isProc = kind === 'proc';
+  if (isProc) procAcSequence++;
   /* ตลอดการ re-render นี้ blur ของช่องเก่าที่ innerHTML ตัดทิ้งจะยิงกลาง
      คาวิธีนี้ — blur handler ต้องข้ามการ commit (ตัวเรียก commit แล้ว) */
   container._rendering = true;
@@ -379,8 +396,9 @@ function chipRow(container, arr) {
 }
 
 /* ===== Proc autocomplete (ICD-9-CM /libs/icd-cm) ===== */
-let procAcTimer = null, procAcIndex = -1;
+let procAcTimer = null, procAcIndex = -1, procAcSequence = 0;
 function closeProcAc(container) {
+  procAcSequence++;
   const l = container.querySelector('.ac-list');
   if (l) l.classList.remove('open');
   const inp = container.querySelector('.chip-input');
@@ -394,6 +412,7 @@ function pickProcAc(item, container) {
 }
 function procAcSearch(inp, container) {
   const q = inp.value.trim();
+  const requestId = ++procAcSequence;
   clearTimeout(procAcTimer);
   procAcIndex = -1;
   if (!q) { closeProcAc(container); return; }
@@ -406,6 +425,8 @@ function procAcSearch(inp, container) {
       const d = await apiGet('libs/icd-cm/' + encodeURIComponent(q));
       rows = (d && d.rows) || [];
     } catch (e) { rows = []; }
+    if (requestId !== procAcSequence || document.activeElement !== inp ||
+        container.querySelector('.chip-input') !== inp || inp.value.trim() !== q) return;
     if (!rows.length) {
       list.innerHTML = '<div class="ac-empty">ไม่พบรหัสหัตถการที่ตรงกัน</div>';
       list.classList.add('open');
@@ -451,12 +472,15 @@ function renderQuick() {
   bindQuick($('procQuick'), PROC, 'procChips');
   renderRecent();
 }
-function getRecent() { try { return JSON.parse(localStorage.getItem('ktl_drg_recent') || '[]'); } catch (e) { return []; } }
+function getRecent() { return recentCodes.slice(); }
 function saveRecent(codes) {
-  let r = getRecent();
+  let r = recentCodes.slice();
   codes.forEach(c => { if (c && !r.includes(c)) r.unshift(c); });
-  r = r.slice(0, 10);
-  try { localStorage.setItem('ktl_drg_recent', JSON.stringify(r)); } catch (e) {}
+  recentCodes = r.slice(0, 10);
+  if (historyPersistenceEnabled) {
+    try { localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(recentCodes)); } catch (e) {}
+  }
+  renderRecent();
 }
 function renderRecent() {
   const r = getRecent().filter(c => !SDX.includes(c)).slice(0, 6);
@@ -520,92 +544,170 @@ $('sexSeg').addEventListener('keydown', e => {
   segBtns[next].focus();
 });
 
+/* ================= INPUT CONTRACTS ================= */
+const VALIDATION_TARGETS = {
+  hcode: 'hcode', pdx: 'pdx', age: 'age', ageDay: 'ageDay', weight: 'weight',
+  losDay: 'losDay', losHour: 'losHour', baseRate: 'baseRate',
+  sdx: 'sdxChips', proc: 'procChips'
+};
+function setValidationIssue(key, message, show) {
+  const target = $(VALIDATION_TARGETS[key]);
+  if (!target) return;
+  const field = target.closest('.field');
+  if (field) field.classList.toggle('has-error', !!show);
+  target.setAttribute('aria-invalid', show ? 'true' : 'false');
+  const error = $(key + 'Error');
+  if (error && show && message) error.textContent = message;
+}
+function clearValidationErrors() {
+  Object.keys(VALIDATION_TARGETS).forEach(key => setValidationIssue(key, '', false));
+  $('pdx').classList.remove('invalid');
+}
+function showValidationErrors(errors) {
+  clearValidationErrors();
+  const keys = Object.keys(errors);
+  keys.forEach(key => setValidationIssue(key, errors[key], true));
+  const first = keys[0];
+  if (first) {
+    const target = $(VALIDATION_TARGETS[first]);
+    if (target && target.matches('input, select, textarea')) target.focus();
+    else if (target) focusChip(target);
+  }
+  const message = first ? errors[first] : 'กรุณาตรวจสอบข้อมูลที่กรอก';
+  setCaseStatus('error', 'ข้อมูลไม่ถูกต้อง', message);
+  toast(message, 4000, 'warn');
+}
+function readNumericField(id, label, min, max, integer, errors) {
+  const raw = String($(id).value == null ? '' : $(id).value).trim();
+  const n = Number(raw);
+  const valid = raw !== '' && Number.isFinite(n) && (!integer || Number.isInteger(n)) && n >= min && n <= max;
+  if (!valid) {
+    errors[id] = integer
+      ? label + 'ต้องเป็นจำนวนเต็มระหว่าง ' + min + '–' + max
+      : label + 'ต้องเป็นตัวเลขระหว่าง ' + min + '–' + max;
+    return null;
+  }
+  return n;
+}
+/* mode=calculate บังคับ SDx ไม่เกิน 12; mode=permute อนุญาต candidate รวม 30
+   แต่ buildPayload ยังตรวจซ้ำเพื่อไม่ให้ request ใดส่ง SDx เกิน 12 */
+function validateCaseInput(mode) {
+  const errors = {};
+  const hcodeRaw = String($('hcode').value == null ? '' : $('hcode').value).trim();
+  const hcode = clean(hcodeRaw);
+  if (!/^\d{5}$/.test(hcodeRaw)) errors.hcode = 'รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก เช่น 10929';
+
+  const pdx = clean($('pdx').value || '');
+  if (!pdx) errors.pdx = 'กรุณาระบุรหัสวินิจฉัยหลักที่ถูกต้อง';
+
+  const age = readNumericField('age', 'อายุ (ปี) ', 0, 120, true, errors);
+  const ageDay = readNumericField('ageDay', 'อายุ (วัน) ', 0, 364, true, errors);
+  const weight = readNumericField('weight', 'น้ำหนัก ', 0, 300, false, errors);
+  const losDay = readNumericField('losDay', 'LOS วัน ', 0, 9999, true, errors);
+  const losHour = readNumericField('losHour', 'LOS ชม. ', 0, 23, true, errors);
+  const baseRate = readNumericField('baseRate', 'Base Rate ', 0, 1e7, false, errors);
+
+  const sdx = [...new Set(SDX.map(c => clean(String(c))).filter(c => c && c !== pdx))];
+  const proc = [...new Set(PROC.map(c => clean(String(c))).filter(Boolean))];
+  if (mode !== 'permute' && sdx.length > MAX_SDX)
+    errors.sdx = 'SDx ปกติส่งได้ไม่เกิน ' + MAX_SDX + ' รายการ — ลดรายการหรือใช้โหมดเปรียบเทียบ';
+  if (proc.length > MAX_PROC)
+    errors.proc = 'Proc ส่งได้ไม่เกิน ' + MAX_PROC + ' รายการ — ลดรายการก่อนคำนวณ';
+  if (mode === 'permute' && new Set([pdx, ...sdx].filter(Boolean)).size > MAX_PERMUTE_CODES)
+    errors.sdx = 'โหมดเปรียบเทียบรองรับรหัสรวม PDx/SDx สูงสุด ' + MAX_PERMUTE_CODES + ' รายการ';
+
+  const dcRaw = String($('dcStatus').value || '11');
+  const dcCode = /^\d{2}$/.test(dcRaw) ? dcRaw : '11';
+  const value = {
+    hcode, sex: SEX === 2 ? 2 : 1, age, age_day: ageDay, weight,
+    los_day: losDay, los_hour: losHour, dcCode, baseRate, pdx, sdx, proc
+  };
+  return { ok: Object.keys(errors).length === 0, errors, value };
+}
+
 /* ================= PAYLOAD BUILDER ================= */
-function buildPayload(pdx, sdx) {
-  const dcCode = $('dcStatus').value || '11';
-  const hcode = clean($('hcode').value);
-  const age = clampNum($('age').value, 0, 120, 0);
-  const ageDay = clampNum($('ageDay').value, 0, 364, 0);
-  const weight = clampNum($('weight').value, 0, 300, 0);
-  const losDay = clampNum($('losDay').value, 0, 9999, 0);
-  const losHour = clampNum($('losHour').value, 0, 23, 0);
-  const baseRate = clampNum($('baseRate').value, 0, 1e7, 3504);
+function buildPayload(value) {
+  if (!value || !Array.isArray(value.sdx) || !Array.isArray(value.proc)) throw new Error('ข้อมูลเคสไม่ครบ');
+  if (!/^\d{5}$/.test(String(value.hcode || '')) || !/^[A-Z0-9]+$/.test(String(value.pdx || '')))
+    throw new Error('รหัส HCode หรือ PDx ไม่ถูกต้อง');
+  if (![value.age, value.age_day, value.los_day, value.los_hour, value.weight, value.baseRate]
+    .every(Number.isFinite)) throw new Error('ค่าตัวเลขของเคสไม่ถูกต้อง');
+  if (!Number.isInteger(value.age) || value.age < 0 || value.age > 120 ||
+      !Number.isInteger(value.age_day) || value.age_day < 0 || value.age_day > 364 ||
+      !Number.isInteger(value.los_day) || value.los_day < 0 || value.los_day > 9999 ||
+      !Number.isInteger(value.los_hour) || value.los_hour < 0 || value.los_hour > 23 ||
+      value.weight < 0 || value.weight > 300 || value.baseRate < 0 || value.baseRate > 1e7)
+    throw new Error('ค่าตัวเลขของเคสอยู่นอกช่วงที่รองรับ');
+  if (value.sdx.length > MAX_SDX) throw new Error('SDx เกิน ' + MAX_SDX + ' รายการ');
+  if (value.proc.length > MAX_PROC) throw new Error('Proc เกิน ' + MAX_PROC + ' รายการ');
+  const dcCode = /^\d{2}$/.test(String(value.dcCode || '')) ? String(value.dcCode) : '11';
   return {
     version: '6',
     data: [{
-      hcode: hcode,
+      hcode: value.hcode,
       hn: '', an: '1',
-      sex: SEX,
-      age: age,
-      age_day: ageDay,
-      los_day: losDay,
-      los_hour: losHour,
-      weight: weight,
+      sex: value.sex,
+      age: value.age,
+      age_day: value.age_day,
+      los_day: value.los_day,
+      los_hour: value.los_hour,
+      weight: value.weight,
       dischs: dcCode.charAt(0),
       discht: dcCode.charAt(1) || '1',
-      pdx: pdx,
-      sdx: (sdx || []).slice(0, 12),
-      proc: PROC.slice(0, 20)
+      pdx: value.pdx,
+      sdx: value.sdx.slice(),
+      proc: value.proc.slice()
     }]
   };
 }
-function clampNum(v, min, max, def) {
-  const n = +v;
-  if (isNaN(n)) return def;
-  return Math.min(max, Math.max(min, n));
+function parseCalcResponse(response) {
+  if (!response || Number(response.status) !== 200)
+    throw new Error('Grouper ไม่ตอบกลับผลลัพธ์ (status ' + (response && response.status) + ')');
+  const result = Array.isArray(response.data) ? response.data[0] : null;
+  if (!result || result.drg == null || String(result.drg).trim() === '')
+    throw new Error('Grouper ไม่ส่งผลลัพธ์ DRG กลับมา');
+  return response;
 }
 async function calcOne(payload) {
-  const d = await apiPost('drg/calculate', payload);
-  if (!d || d.status !== 200) throw new Error('Grouper ไม่ตอบกลับผลลัพธ์ (status ' + (d && d.status) + ')');
-  return d;
+  return parseCalcResponse(await apiPost('drg/calculate', payload));
 }
 
 /* ================= CALCULATE ================= */
 $('btnCalc').addEventListener('click', async () => {
   if (BUSY) return;
-  const hcode = clean($('hcode').value);
-  if (!/^\d{5}$/.test(hcode)) {
-    setHcodeError(true);
-    $('hcode').focus();
-    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก');
-    toast('รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก เช่น 10929', 3000, 'warn');
-    return;
-  }
-  const pdx = clean($('pdx').value);
-  if (!pdx) {
-    setPdxError(true);
-    $('pdx').classList.add('invalid');
-    $('pdx').focus();
-    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'กรุณาระบุ PDx ก่อนคำนวณ');
-    toast('กรุณาระบุ PDx (รหัสวินิจฉัยหลัก)', 3000, 'warn');
-    setTimeout(() => $('pdx').classList.remove('invalid'), 1800);
-    return;
-  }
-  const payload = buildPayload(pdx, SDX);
+  const validation = validateCaseInput('calculate');
+  if (!validation.ok) { showValidationErrors(validation.errors); return; }
+  clearValidationErrors();
+  const value = validation.value;
+  const payload = buildPayload(value);
+  const resultId = ++calculationGeneration;
   setBusy(true, 'btnCalc');
   setCaseStatus('working', 'กำลังคำนวณ', 'ส่งข้อมูลไปยัง Grouper ทางการ');
   $('loaderTxt').textContent = 'กำลังคำนวณ DRG ผ่าน Grouper ทางการ...';
   $('loader').classList.add('show');
   try {
     const d = await calcOne(payload);
-    const r = (d.data && d.data[0]) || {};
-    if (!r.drg) throw new Error('ไม่ได้รับผลลัพธ์จาก grouper');
-    renderResult(r, d.tgrp || {});
-    saveHistory(payload.data[0], r);
-    saveRecent([pdx, ...SDX]);
+    if (resultId !== calculationGeneration) return;
+    const r = d.data[0];
+    renderResult(r, d.tgrp || {}, value.baseRate, resultId);
+    saveHistory(payload.data[0], r, value.baseRate);
+    saveRecent([value.pdx, ...value.sdx]);
     toast('คำนวณเสร็จ · DRG ' + r.drg + ' · ADJRW ' + fmt(r.adjrw), 3000, 'ok');
     setCaseStatus('success', 'คำนวณสำเร็จ', 'DRG ' + r.drg + ' · ADJRW ' + fmt(r.adjrw));
   } catch (e) {
+    if (resultId !== calculationGeneration) return;
     renderError(e);
     setCaseStatus('error', 'คำนวณไม่สำเร็จ', friendlyError(e));
   } finally {
-    $('loader').classList.remove('show');
-    setBusy(false);
+    if (resultId === calculationGeneration) {
+      $('loader').classList.remove('show');
+      setBusy(false);
+    }
   }
 });
 
 /* ================= PERMUTE ================= */
-const SDX_GROUP = 12;
+const SDX_GROUP = MAX_SDX;
 const MAX_SCENARIOS = 600;
 const PERM_CONCURRENCY = 3;    /* ยิงขนานต่อ chunk — สุภาพกับเซิร์ฟเวอร์ สรท. */
 const PERM_SEC_PER_CALL = 1.4; /* อัตราเฉลี่ยต่อเคส จากการใช้งานจริง */
@@ -645,19 +747,18 @@ function buildScenarios(codes, currentPdx) {
 
 $('btnPermute').addEventListener('click', async () => {
   if (BUSY) return;
-  const hcode = clean($('hcode').value);
-  if (!/^\d{5}$/.test(hcode)) {
-    setHcodeError(true);
-    $('hcode').focus();
-    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก');
-    toast('รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก เช่น 10929', 3000, 'warn');
+  const validation = validateCaseInput('permute');
+  if (!validation.ok) { showValidationErrors(validation.errors); return; }
+  clearValidationErrors();
+  const value = validation.value;
+  const pdx = value.pdx;
+  const codes = [...new Set([pdx, ...value.sdx])].filter(Boolean);
+  if (codes.length < 2) {
+    const message = 'เพิ่ม SDx อย่างน้อย 1 รหัส เพื่อให้สลับเป็น PDx ได้';
+    setCaseStatus('error', 'ข้อมูลยังไม่ครบ', message);
+    toast(message, 3500, 'warn');
     return;
   }
-  const pdx = clean($('pdx').value);
-  if (!pdx) { setPdxError(true); setCaseStatus('error', 'ข้อมูลยังไม่ครบ', 'กรุณาระบุ PDx ก่อนเปรียบเทียบ'); toast('กรุณาระบุ PDx (รหัสวินิจฉัยหลัก)', 3000, 'warn'); return; }
-  const codes = [...new Set([pdx, ...SDX.map(clean)])].filter(Boolean);
-  if (codes.length < 2) { toast('เพิ่ม SDx อย่างน้อย 1 รหัส เพื่อให้สลับเป็น PDx ได้', 3500, 'warn'); return; }
-  if (codes.length > 30) { toast('รหัสเยอะเกินไป (สูงสุด 30) — ลด SDx ก่อน', 3500, 'warn'); return; }
 
   const { scenarios, capped } = buildScenarios(codes, pdx);
   const estSec = permEstimateSec(scenarios.length);
@@ -668,41 +769,63 @@ $('btnPermute').addEventListener('click', async () => {
   )) { return; }
   const t0 = Date.now();
   STOP_PERMUTE = false;
+  const resultId = ++calculationGeneration;
 
   setBusy(true);
   setCaseStatus('working', 'กำลังเปรียบเทียบ PDx', 'ทดสอบ ' + scenarios.length + ' ทางเลือก · หยุดได้ทุกเมื่อ');
-  renderPermuteStream(scenarios.length, capped);
+  $('loaderTxt').textContent = 'กำลังเปรียบเทียบทางเลือก PDx ผ่าน Grouper ทางการ...';
+  $('loader').classList.add('show');
 
   /* baseline = เคสตามที่กรอกจริง (PDx ปัจจุบัน + SDx ทั้งชุดที่เห็นบนจอ)
      ใช้เป็นฐานของคอลัมน์ ΔADJRW — แทนการเดาจาก scenario แรกที่พบ
      (เมื่อ SDx > 12 ตัว scenario แรกเป็นแค่ส่วนย่อยหนึ่ง ไม่ใช่เคสจริง) */
   let baselineAdj = null, baselineRes = null;
   try {
-    const base = await calcOne(buildPayload(pdx, SDX));
-    baselineRes = (base.data && base.data[0]) || null;
-    baselineAdj = baselineRes ? (baselineRes.adjrw || null) : null;
-  } catch (e) { baselineAdj = null; baselineRes = null; }
-
-  const results = new Array(scenarios.length);
-  for (let i = 0; i < scenarios.length; i += PERM_CONCURRENCY) {
-    if (STOP_PERMUTE) break;
-    const chunk = scenarios.slice(i, i + PERM_CONCURRENCY);
-    await Promise.all(chunk.map(async (s, k) => {
+    renderPermuteStream(scenarios.length, capped);
+    /* baseline เป็น request จริงเฉพาะเมื่อ SDx อยู่ในขีดจำกัดของ request ปกติ
+       เพื่อไม่ให้โหมดเปรียบเทียบแอบตัดข้อมูลหรือส่ง SDx เกิน 12 */
+    if (value.sdx.length <= MAX_SDX) {
       try {
-        const d = await calcOne(buildPayload(s.pdx, s.sdx));
-        results[i + k] = { idx: i + k, pdx: s.pdx, sdx: s.sdx, r: (d.data && d.data[0]) || {}, err: false };
-      } catch (e) {
-        results[i + k] = { idx: i + k, pdx: s.pdx, sdx: s.sdx, r: { drg: '—', err: -1, error: String(e.message || e) }, err: true };
-      }
-    }));
-    chunk.forEach((s, k) => permAppendRow(i + k + 1, s, results[i + k].err ? null : results[i + k].r, results[i + k].err));
-    updatePermuteProgress(Math.min(i + PERM_CONCURRENCY, scenarios.length), scenarios.length, chunk[0].pdx, t0);
+        const base = await calcOne(buildPayload(value));
+        baselineRes = base.data[0];
+        baselineAdj = baselineRes.adjrw != null ? baselineRes.adjrw : null;
+      } catch (e) { baselineAdj = null; baselineRes = null; }
+    }
+
+    const results = new Array(scenarios.length);
+    for (let i = 0; i < scenarios.length; i += PERM_CONCURRENCY) {
+      if (STOP_PERMUTE) break;
+      const chunk = scenarios.slice(i, i + PERM_CONCURRENCY);
+      await Promise.all(chunk.map(async (s, k) => {
+        try {
+          const scenarioValue = Object.assign({}, value, { pdx: s.pdx, sdx: s.sdx });
+          const d = await calcOne(buildPayload(scenarioValue));
+          results[i + k] = { idx: i + k, pdx: s.pdx, sdx: s.sdx, r: d.data[0], err: false };
+        } catch (e) {
+          results[i + k] = { idx: i + k, pdx: s.pdx, sdx: s.sdx, r: { drg: '—', err: -1, error: String(e.message || e) }, err: true };
+        }
+      }));
+      chunk.forEach((s, k) => permAppendRow(i + k + 1, s, results[i + k].err ? null : results[i + k].r, results[i + k].err));
+      updatePermuteProgress(i + chunk.length, scenarios.length, chunk[0].pdx, t0);
+    }
+    if (resultId !== calculationGeneration) return;
+    const got = results.filter(Boolean);
+    saveRecent(codes);
+    renderPermute(got, pdx, Date.now() - t0, capped, STOP_PERMUTE, baselineAdj, baselineRes, value.sdx);
+    setCaseStatus(got.length ? 'success' : 'error',
+      got.length ? (STOP_PERMUTE ? 'หยุดการเปรียบเทียบแล้ว' : 'เปรียบเทียบเสร็จ') : 'ไม่มีผลลัพธ์',
+      got.length + ' ทางเลือก · ดูอันดับ PDx ด้านล่าง');
+  } catch (e) {
+    if (resultId === calculationGeneration) {
+      renderError(e);
+      setCaseStatus('error', 'เปรียบเทียบไม่สำเร็จ', friendlyError(e));
+    }
+  } finally {
+    if (resultId === calculationGeneration) {
+      $('loader').classList.remove('show');
+      setBusy(false);
+    }
   }
-  const got = results.filter(Boolean);
-  setBusy(false);
-  saveRecent(codes);
-  renderPermute(got, pdx, Date.now() - t0, capped, STOP_PERMUTE, baselineAdj, baselineRes);
-  setCaseStatus('success', STOP_PERMUTE ? 'หยุดการเปรียบเทียบแล้ว' : 'เปรียบเทียบเสร็จ', got.length + ' ทางเลือก · ดูอันดับ PDx ด้านล่าง');
 });
 
 function renderPermuteStream(total, capped) {
@@ -754,12 +877,12 @@ function permAppendRow(i, s, r, isErr) {
     <td>${isErr ? '—' : fmt(r.adjrw || 0)}</td>
     <td class="delta">—</td>
     <td>${isErr ? '—' : fmt(r.wtlos)}</td>
-    <td>${isErr ? '—' : (r.ot ?? '—')}</td>
+     <td>${isErr ? '—' : esc(r.ot ?? '—')}</td>
     <td>${isErr ? '<span class="gain-dn">ERR</span>' : (r.err > 0 ? `<span class="gain-dn">err=${r.err}</span>` : (r.warn > 0 ? `<span style="color:var(--warn)">warn=${r.warn}</span>` : IC.check))}</td>`;
   tb.appendChild(tr);
 }
 
-function renderPermute(results, currentPdx, elapsedMs, capped, stopped, baselineAdj, baselineRes) {
+function renderPermute(results, currentPdx, elapsedMs, capped, stopped, baselineAdj, baselineRes, baselineSdx) {
   if (!results.length) {
     $('resultBody').innerHTML = '<div class="alert warn">' + IC.warn + ' <span>ไม่มีผลลัพธ์ — อาจหยุดก่อนแบบแรกเสร็จ หรือเครือข่ายไม่พร้อม (API ใช้ได้จาก IP ไทยเท่านั้น) ลองอีกครั้ง</span></div>';
     scrollToEl($('resultCard'));
@@ -839,14 +962,14 @@ function renderPermute(results, currentPdx, elapsedMs, capped, stopped, baseline
       tr.innerHTML = `
         <td class="n">—</td>
         <td><b>${esc(currentPdx)}</b> <span class="tag cur">ปัจจุบัน (ตามที่กรอก)</span></td>
-        <td class="n">${esc(SDX.join(', ')) || '—'}</td>
+        <td class="n">${esc((baselineSdx || []).join(', ')) || '—'}</td>
         <td class="drg">${esc(baselineRes.drg || '—')}</td>
         <td>${esc(baselineRes.mdc || '—')}</td>
         <td>${fmt(baselineRes.rw)}</td>
         <td>${fmt(baselineRes.adjrw)}</td>
         <td class="delta">±0.0000</td>
         <td>${fmt(baselineRes.wtlos)}</td>
-        <td>${baselineRes.ot ?? '—'}</td>
+        <td>${esc(baselineRes.ot ?? '—')}</td>
         <td>${statusTxt}</td>`;
       const head = tb.querySelector('tr');
       if (head) tb.insertBefore(tr, head.nextSibling);
@@ -885,9 +1008,9 @@ function pruneLibCache() {
   } catch (e) {}
 }
 
-function renderResult(r, tgrp) {
-  const baseRate = clampNum($('baseRate').value, 0, 1e7, 3504);
-  const pay = (r.adjrw || 0) * baseRate;
+function renderResult(r, tgrp, baseRate, resultId) {
+  const displayBaseRate = Number.isFinite(Number(baseRate)) ? Number(baseRate) : 3504;
+  const pay = (r.adjrw || 0) * displayBaseRate;
   const losShow = (r.los != null && r.los !== '') ? r.los : ((+r.los_day || 0) + (+r.los_hour || 0) / 24);
   const errs = [], warns = [];
   if (r.err > 0) errs.push(r.err);
@@ -905,11 +1028,11 @@ function renderResult(r, tgrp) {
       <div class="stat"><div class="k">RW</div><div class="v">${fmt(r.rw)}</div></div>
       <div class="stat"><div class="k">ADJRW</div><div class="v amber">${fmt(r.adjrw)}</div></div>
       <div class="stat"><div class="k">WTLOS</div><div class="v">${fmt(r.wtlos)}</div></div>
-      <div class="stat"><div class="k">OT</div><div class="v">${r.ot ?? '—'}</div></div>
+      <div class="stat"><div class="k">OT</div><div class="v">${esc(r.ot ?? '—')}</div></div>
       <div class="stat"><div class="k">LOS</div><div class="v">${fmt(losShow)}</div></div>
     </div>
     <div class="alert ok" style="margin-top:14px;">
-      ${IC.money} <span>ประมาณการค่าใช้จ่าย (ADJRW × Base Rate ${fmtNum(baseRate)}): <b class="ml">${fmtNum(pay)} บาท</b></span>
+       ${IC.money} <span>ประมาณการค่าใช้จ่าย (ADJRW × Base Rate ${fmtNum(displayBaseRate)}): <b class="ml">${fmtNum(pay)} บาท</b></span>
     </div>`;
 
   if (errs.length) {
@@ -931,42 +1054,46 @@ function renderResult(r, tgrp) {
   if (cp) cp.addEventListener('click', () =>
     copyText(`DRG ${r.drg} · MDC ${r.mdc} · RW ${fmt(r.rw)} · ADJRW ${fmt(r.adjrw)} · ประมาณการ ${fmtNum(pay)} บาท`));
 
-  loadDrgName(r.drg);
-  if (errs.length) loadDesc('drg-error/' + errs[0], 'errTxt');
+  loadDrgName(r.drg, resultId);
+  if (errs.length) loadDesc('libs/drg-error/' + errs[0], 'errTxt', null, resultId);
   if (warns.length) {
     const txt = $('warnTxt');
     let acc = [];
     warns.forEach((w, i) => {
-      loadDesc('drg-warning/' + w, null, (name) => {
+      loadDesc('libs/drg-warning/' + w, null, (name) => {
+        if (resultId !== calculationGeneration) return;
         acc[i] = name;
         /* นับที่ "เสร็จแล้ว" (รวมชื่อว่าง) ไม่ใช่นับชื่อที่มี — ไม่งั้นพอบาง bit
            ไม่มีคำอธิบาย warnTxt จะค้าง "กำลังโหลด..." ตลอดไป */
         if (acc.filter(x => x !== undefined).length === warns.length)
           txt.textContent = acc.filter(Boolean).join('; ') || '—';
-      });
+      }, resultId);
     });
   }
 }
 function fmt(n) { return (n === null || n === undefined || n === '') ? '—' : (+n).toLocaleString('th-TH', { maximumFractionDigits: 4 }); }
 function fmtNum(n) { return (+n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }); }
 
-async function loadDrgName(drg) {
+function isCurrentCalculation(resultId) { return resultId == null || resultId === calculationGeneration; }
+async function loadDrgName(drg, resultId) {
+  if (!isCurrentCalculation(resultId)) return;
   const cached = cacheGet('drg_' + drg);
-  if (cached) { if ($('drgNameRow')) $('drgNameRow').textContent = cached; return; }
+  if (cached) { if (isCurrentCalculation(resultId) && $('drgNameRow')) $('drgNameRow').textContent = cached; return; }
   try {
-    const d = await apiGet('libs/drg-name/' + drg);
+    const d = await apiGet('libs/drg-name/' + encodeURIComponent(String(drg)));
     const row = (d && d.rows && d.rows[0]);
     const name = (row && row.drgname) || '';
     if (name) cacheSet('drg_' + drg, name);
-    if ($('drgNameRow')) $('drgNameRow').textContent = name || '';
+    if (isCurrentCalculation(resultId) && $('drgNameRow')) $('drgNameRow').textContent = name || '';
   } catch (e) { }
 }
-async function loadDesc(path, elId, cb) {
+async function loadDesc(path, elId, cb, resultId) {
+  if (!isCurrentCalculation(resultId)) return;
   const key = path.replace(/[^A-Za-z0-9]/g, '_');
   const cached = cacheGet(key);
   if (cached) {
-    if (elId && $(elId)) $(elId).textContent = cached;
-    if (cb) cb(cached);
+    if (isCurrentCalculation(resultId) && elId && $(elId)) $(elId).textContent = cached;
+    if (cb && isCurrentCalculation(resultId)) cb(cached);
     return;
   }
   try {
@@ -974,9 +1101,10 @@ async function loadDesc(path, elId, cb) {
     const row = (d && d.rows && d.rows[0]);
     const name = row ? (row.name || row.name_th || '') : '';
     if (name) cacheSet(key, name);
+    if (!isCurrentCalculation(resultId)) return;
     if (elId && $(elId)) $(elId).textContent = name;
     if (cb) cb(name);
-  } catch (e) { if (cb) cb(''); }
+  } catch (e) { if (cb && isCurrentCalculation(resultId)) cb(''); }
 }
 
 function friendlyError(e) {
@@ -998,23 +1126,87 @@ function renderError(e) {
 /* ================= HISTORY ================= */
 /* schema v2: เก็บเคสเต็มทุก field ที่ส่งผลต่อการคำนวณ — โหลดกลับมาแล้ว
    ต้องได้ผลเดิม ไม่ใช่ PDx เดิม + ค่า default 65 ปี/60 กก. แบบเดิม
-   (entry เก่าที่ไม่มี field ใหม่ยังโหลดได้แบบบางส่วน) */
+   (entry เก่าที่ไม่มี field ใหม่ยังโหลดได้แบบบางส่วน)
+   ข้อมูลเคสอยู่ใน memory เป็นค่าเริ่มต้น; localStorage ใช้ได้เมื่อผู้ใช้ opt-in */
 let pendingDc = null; /* D/C ที่รอโหลด option จาก API เสร็จก่อนค่อยเลือก */
-function saveHistory(pat, r) {
-  let h = [];
-  try { h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]'); } catch (e) {}
-  h.unshift({
+function readStoredArray(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch (e) { return []; }
+}
+function clearHealthStorage() {
+  try {
+    localStorage.removeItem(HISTORY_STORAGE_KEY);
+    localStorage.removeItem(RECENT_STORAGE_KEY);
+  } catch (e) {}
+}
+function persistHistory() {
+  if (!historyPersistenceEnabled) return;
+  try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(caseHistory.slice(0, 10))); } catch (e) {}
+}
+function initHistoryStorage() {
+  let optedIn = false;
+  try { optedIn = localStorage.getItem(HISTORY_OPT_IN_KEY) === '1'; } catch (e) {}
+  historyPersistenceEnabled = optedIn;
+  if (!optedIn) {
+    /* ล้าง legacy data ที่ไม่มี consent flag และไม่ restore กลับเข้า form */
+    clearHealthStorage();
+    caseHistory = [];
+    recentCodes = [];
+    return;
+  }
+  caseHistory = readStoredArray(HISTORY_STORAGE_KEY)
+    .filter(item => item && typeof item === 'object').slice(0, 10);
+  recentCodes = readStoredArray(RECENT_STORAGE_KEY)
+    .filter(code => typeof code === 'string').map(clean).filter(Boolean).slice(0, 10);
+}
+function updateHistoryPrivacyUi() {
+  const toggle = $('rememberHistory');
+  const note = $('historyPrivacyNote');
+  if (toggle) toggle.checked = historyPersistenceEnabled;
+  if (note) note.textContent = historyPersistenceEnabled
+    ? 'เปิดอยู่: ประวัติและรหัสล่าสุดจะเก็บใน localStorage ของเครื่องนี้เท่านั้น — หลีกเลี่ยงการใช้บนเครื่องสาธารณะ'
+    : 'ปิดอยู่: ประวัติและรหัสล่าสุดเก็บเฉพาะในหน่วยความจำของแท็บนี้ และจะหายเมื่อปิด/โหลดหน้าใหม่';
+}
+function initHistoryPrivacy() {
+  const toggle = $('rememberHistory');
+  if (!toggle) return;
+  updateHistoryPrivacyUi();
+  toggle.addEventListener('change', () => {
+    if (toggle.checked) {
+      historyPersistenceEnabled = true;
+      try { localStorage.setItem(HISTORY_OPT_IN_KEY, '1'); } catch (e) {}
+      persistHistory();
+      try { localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(recentCodes.slice(0, 10))); } catch (e) {}
+      updateHistoryPrivacyUi();
+      toast('เปิดการจำประวัติแล้ว — ข้อมูลสุขภาพจะเก็บไว้ในเครื่องนี้เท่านั้น', 4500, 'warn');
+      return;
+    }
+    historyPersistenceEnabled = false;
+    caseHistory = [];
+    recentCodes = [];
+    clearHealthStorage();
+    try { localStorage.removeItem(HISTORY_OPT_IN_KEY); } catch (e) {}
+    renderHistory();
+    renderRecent();
+    updateHistoryPrivacyUi();
+    toast('ปิดการจำประวัติและล้างข้อมูลสุขภาพที่บันทึกไว้แล้ว', 3500, 'ok');
+  });
+}
+function saveHistory(pat, r, baseRate) {
+  caseHistory.unshift({
     v: 2, ts: Date.now(),
     hcode: pat.hcode, sex: pat.sex,
     age: pat.age, age_day: pat.age_day, weight: pat.weight,
     los_day: pat.los_day, los_hour: pat.los_hour,
     dc: (pat.dischs || '') + (pat.discht || ''),
-    baseRate: clampNum($('baseRate').value, 0, 1e7, 3504),
+    baseRate: Number.isFinite(Number(baseRate)) ? Number(baseRate) : 3504,
     pdx: pat.pdx, sdx: pat.sdx || [], proc: pat.proc || [],
     drg: r.drg, rw: r.rw, adjrw: r.adjrw
   });
-  h = h.slice(0, 10);
-  try { localStorage.setItem('ktl_drg_hist', JSON.stringify(h)); } catch (e) {}
+  caseHistory = caseHistory.slice(0, 10);
+  persistHistory();
   renderHistory();
 }
 /* โหลดเคสกลับเต็มฟอร์ม — ใช้ทั้งปุ่มประวัติและตอนเปิดหน้าใหม่ */
@@ -1029,19 +1221,20 @@ function restoreCase(item) {
   if (item.los_day != null) $('losDay').value = item.los_day;
   if (item.los_hour != null) $('losHour').value = item.los_hour;
   if (item.baseRate != null) $('baseRate').value = item.baseRate;
-  setArr(SDX, item.sdx); setArr(PROC, item.proc);
+  setArr(SDX, Array.isArray(item.sdx) ? item.sdx : []);
+  setArr(PROC, Array.isArray(item.proc) ? item.proc : []);
   chipRow($('sdxChips'), SDX); chipRow($('procChips'), PROC);
   if (item.dc) {
     const sel = $('dcStatus');
-    if ([...sel.options].some(o => o.value === item.dc)) sel.value = item.dc;
-    else pendingDc = item.dc; /* รายการ D/C ยังโหลดไม่เสร็จ — loadDc จะเลือกให้เอง */
+    const dcCode = String(item.dc);
+    if ([...sel.options].some(o => o.value === dcCode)) sel.value = dcCode;
+    else pendingDc = dcCode; /* รายการ D/C ยังโหลดไม่เสร็จ — loadDc จะเลือกให้เอง */
   }
   syncSdxVsPdx();
   updatePdxReadiness();
 }
 function renderHistory() {
-  let h = [];
-  try { h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]'); } catch (e) {}
+  const h = caseHistory;
   $('histBody').innerHTML = h.length ? h.map((x, i) =>
     `<div class="hist-item" data-idx="${i}" role="button" tabindex="0" title="โหลดเคส ${esc(x.pdx)} กลับมาทั้งหมด">
        <span class="drg">${esc(x.drg)}</span>
@@ -1063,14 +1256,18 @@ function renderHistory() {
   });
 }
 $('btnClearHist').addEventListener('click', () => {
-  try { localStorage.removeItem('ktl_drg_hist'); } catch (e) {}
+  caseHistory = [];
+  recentCodes = [];
+  clearHealthStorage();
   renderHistory();
+  renderRecent();
   toast('ลบประวัติทั้งหมดแล้ว', 2500, 'ok');
 });
 
 /* ================= RESET ================= */
 $('btnReset').addEventListener('click', () => {
   if (BUSY) return;
+  calculationGeneration++;
   $('hcode').value = '10929';
   $('age').value = 65; $('ageDay').value = 0; $('weight').value = 60;
   $('losDay').value = 5; $('losHour').value = 0; $('baseRate').value = 3504;
@@ -1080,9 +1277,10 @@ $('btnReset').addEventListener('click', () => {
   chipRow($('sdxChips'), SDX);
   chipRow($('procChips'), PROC);
   $('resultBody').innerHTML = emptyState();
-  $('pdx').classList.remove('invalid');
-  setPdxError(false);
-  setHcodeError(false);
+  clearValidationErrors();
+  const dc = $('dcStatus');
+  if (dc && [...dc.options].some(o => o.value === '11')) dc.value = '11';
+  pendingDc = null;
   setCaseStatus('ready', 'พร้อมคำนวณ', 'ฟอร์มถูกล้างแล้ว · กรอก PDx เพื่อเริ่มใหม่');
   closePdxList();
 });
@@ -1122,18 +1320,17 @@ function initTheme() {
 
 /* ================= INIT ================= */
 (function restore() {
-  try {
-    const h = JSON.parse(localStorage.getItem('ktl_drg_hist') || '[]');
-    if (h.length && h[0]) restoreCase(h[0]); /* เต็มเคส ไม่ใช่แค่ PDx */
-  } catch (e) {}
+  initHistoryStorage();
   pruneLibCache();
 })();
 bindChips($('sdxChips'), SDX, 'sdx');
 bindChips($('procChips'), PROC, 'proc');
 chipRow($('sdxChips'), SDX);
 chipRow($('procChips'), PROC);
+if (historyPersistenceEnabled && caseHistory[0]) restoreCase(caseHistory[0]); /* restore เมื่อ opt-in เท่านั้น */
 loadDc();
 renderHistory();
+initHistoryPrivacy();
 renderQuick();
 initTheme();
 updatePdxReadiness();

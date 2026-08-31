@@ -1,0 +1,32 @@
+# Browser regression tests อยู่ใน tests/ แยกจาก raw-static application root
+name: Web browser tests
+
+on:
+  pull_request:
+    paths: ['index.html', 'web/**', 'scripts/**', 'tests/**', '.github/workflows/web-e2e.yml']
+  push:
+    branches: [main]
+    paths: ['index.html', 'web/**', 'scripts/**', 'tests/**', '.github/workflows/web-e2e.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - name: Install test-only dependencies
+        working-directory: tests
+        run: npm ci
+      - name: Install Chromium
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
+      - name: Run browser regression suite
+        working-directory: tests
+        run: npm test

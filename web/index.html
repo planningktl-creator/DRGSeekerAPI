@@ -49,7 +49,7 @@
 
       <div class="field">
         <label class="lbl" for="hcode">รหัสสถานพยาบาล (HCode) <span class="required">จำเป็น</span></label>
-        <input type="text" id="hcode" value="10929" maxlength="5" inputmode="numeric" autocomplete="off" aria-describedby="hcodeError" aria-invalid="false">
+        <input type="text" id="hcode" value="10929" inputmode="numeric" autocomplete="off" aria-describedby="hcodeError" aria-invalid="false">
         <div class="field-error" id="hcodeError">รหัสสถานพยาบาลต้องเป็นตัวเลข 5 หลัก เช่น 10929</div>
         <div class="hint">รหัส 5 หลักของสถานพยาบาล · ตัวอย่าง 10929 (รพ.กันทรลักษ์)</div>
       </div>
@@ -67,30 +67,36 @@
       <div class="row3">
         <div class="field">
           <label class="lbl" for="age">อายุ (ปี)</label>
-          <input type="number" id="age" value="65" min="0" max="120" inputmode="numeric">
+          <input type="number" id="age" value="65" min="0" max="120" inputmode="numeric" aria-describedby="ageError" aria-invalid="false">
+          <div class="field-error" id="ageError">อายุ (ปี) ต้องเป็นจำนวนเต็มระหว่าง 0–120</div>
         </div>
         <div class="field">
           <label class="lbl" for="ageDay">อายุ (วัน)</label>
-          <input type="number" id="ageDay" value="0" min="0" max="364" inputmode="numeric">
+          <input type="number" id="ageDay" value="0" min="0" max="364" inputmode="numeric" aria-describedby="ageDayError" aria-invalid="false">
+          <div class="field-error" id="ageDayError">อายุ (วัน) ต้องเป็นจำนวนเต็มระหว่าง 0–364</div>
         </div>
         <div class="field">
           <label class="lbl" for="weight">น้ำหนัก (กก.)</label>
-          <input type="number" id="weight" value="60" min="0" max="300" step="0.1" inputmode="decimal">
+          <input type="number" id="weight" value="60" min="0" max="300" step="0.1" inputmode="decimal" aria-describedby="weightError" aria-invalid="false">
+          <div class="field-error" id="weightError">น้ำหนักต้องเป็นตัวเลขระหว่าง 0–300</div>
         </div>
       </div>
 
       <div class="row3">
         <div class="field">
           <label class="lbl" for="losDay">LOS วัน</label>
-          <input type="number" id="losDay" value="5" min="0" inputmode="numeric">
+          <input type="number" id="losDay" value="5" min="0" max="9999" inputmode="numeric" aria-describedby="losDayError" aria-invalid="false">
+          <div class="field-error" id="losDayError">LOS วัน ต้องเป็นจำนวนเต็มระหว่าง 0–9999</div>
         </div>
         <div class="field">
           <label class="lbl" for="losHour">LOS ชม.</label>
-          <input type="number" id="losHour" value="0" min="0" max="23" inputmode="numeric">
+          <input type="number" id="losHour" value="0" min="0" max="23" inputmode="numeric" aria-describedby="losHourError" aria-invalid="false">
+          <div class="field-error" id="losHourError">LOS ชม. ต้องเป็นจำนวนเต็มระหว่าง 0–23</div>
         </div>
         <div class="field">
           <label class="lbl" for="baseRate">Base Rate (บาท)</label>
-          <input type="number" id="baseRate" value="3504" min="0" inputmode="numeric">
+          <input type="number" id="baseRate" value="3504" min="0" max="10000000" step="any" inputmode="decimal" aria-describedby="baseRateError" aria-invalid="false">
+          <div class="field-error" id="baseRateError">Base Rate ต้องเป็นตัวเลขระหว่าง 0–10000000</div>
         </div>
       </div>
 
@@ -114,16 +120,18 @@
 
       <div class="field">
         <div class="lbl">SDx — รหัสวินิจฉัยร่วม (Enter เพื่อเพิ่ม)</div>
-        <div class="chips" id="sdxChips" aria-label="รายการ SDx — พิมพ์รหัสแล้วกด Enter"></div>
+        <div class="chips" id="sdxChips" aria-label="รายการ SDx — พิมพ์รหัสแล้วกด Enter" aria-describedby="sdxError" aria-invalid="false"></div>
         <div class="qrow" id="sdxQuick"></div>
         <div class="qrow" id="sdxRecent" style="display:none;"></div>
+        <div class="field-error" id="sdxError">SDx ปกติส่งได้ไม่เกิน 12 รายการ</div>
         <div class="hint">วางหลายรหัสพร้อมกันได้ (คั่นด้วย , space หรือ ;) · Enter ว่างๆ = ไป Proc</div>
       </div>
 
       <div class="field">
         <div class="lbl">Proc — รหัสหัตถการ ICD-9-CM (Enter เพื่อเพิ่ม)</div>
-        <div class="chips" id="procChips" aria-label="รายการ Proc — พิมพ์รหัสแล้วกด Enter"></div>
+        <div class="chips" id="procChips" aria-label="รายการ Proc — พิมพ์รหัสแล้วกด Enter" aria-describedby="procError" aria-invalid="false"></div>
         <div class="qrow" id="procQuick"></div>
+        <div class="field-error" id="procError">Proc ส่งได้ไม่เกิน 20 รายการ</div>
         <div class="hint">พิมพ์แล้วมีคำแนะนำอัตโนมัติ · Enter ว่างๆ = คำนวณทันที</div>
       </div>
 
@@ -161,8 +169,10 @@
 
       <div class="card" id="histCard">
         <div class="card-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> ประวัติการคำนวณ <span class="line"></span>
+          <label class="history-optin" for="rememberHistory"><input type="checkbox" id="rememberHistory" aria-describedby="historyPrivacyNote"><span>จำประวัติบนเครื่องนี้</span></label>
           <button type="button" class="mini-btn" id="btnClearHist" title="ลบประวัติทั้งหมด">ล้าง</button>
         </div>
+        <div class="privacy-note" id="historyPrivacyNote">ปิดอยู่: ประวัติและรหัสล่าสุดเก็บเฉพาะในหน่วยความจำของแท็บนี้ และจะหายเมื่อปิด/โหลดหน้าใหม่</div>
         <div id="histBody" aria-live="polite"><div class="hist-empty"><div class="hist-empty-ic" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>ยังไม่มีประวัติ<br><span>คำนวณเคสแรกเพื่อบันทึกไว้ที่นี่</span></div></div>
       </div>
     </div>

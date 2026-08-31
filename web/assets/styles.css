@@ -198,6 +198,13 @@ header {
 }
 .card-title .line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(34, 211, 238, .35), transparent); }
 .card-title.sec { margin-top: 24px; }
+.history-optin {
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
+  color: var(--muted); font-family: var(--font-body); font-size: 11px; font-weight: 500;
+  letter-spacing: 0; cursor: pointer; white-space: nowrap;
+}
+.history-optin input { width: 15px; height: 15px; margin: 0; accent-color: var(--teal); cursor: pointer; }
+.privacy-note { color: var(--hint); font-size: 11px; line-height: 1.55; margin: -7px 0 14px; }
 
 /* ---------- Form ---------- */
 .field { margin-bottom: 16px; }
@@ -265,6 +272,7 @@ select option { background: var(--ac-bg); color: var(--txt); }
 .required { color: var(--amber); margin-left: 3px; }
 .field-error { display: none; color: var(--err); font-size: 12px; margin-top: 5px; line-height: 1.45; }
 .field.has-error .field-error { display: block; }
+.field.has-error .chips { border-color: var(--err); box-shadow: 0 0 0 3px rgba(248, 113, 113, .12); }
 .advanced-fields { border: 1px solid var(--input-border); border-radius: 14px; padding: 0 14px; background: var(--card-2); margin: 6px 0 18px; }
 .advanced-fields summary { cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 700; padding: 12px 2px; list-style-position: inside; }
 .advanced-fields summary::marker { color: var(--teal); }
@@ -536,6 +544,9 @@ footer b { color: var(--muted); font-weight: 600; }
 /* ---------- Mobile bottom bar ---------- */
 .mobile-bar { display: none; }
 @media (max-width: 640px) {
+  .card-title { flex-wrap: wrap; }
+  .card-title .line { min-width: 18px; }
+  .privacy-note { margin-top: -8px; }
   .mobile-bar {
     display: flex; gap: 10px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
     padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
